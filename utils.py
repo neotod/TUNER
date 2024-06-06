@@ -3,16 +3,17 @@ from yaml.loader import SafeLoader
 import numpy as np
 import torch
 from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
 from itertools import product
+from typing import Sequence
 
+from mrnet.datasets.utils import make_grid_coords, INVERSE_COLOR_MAPPING
+from mrnet.datasets.sampler import BatchSampler
 from mrnet.datasets.pyramids import create_MR_structure
 from mrnet.training.optimizer import (OptimizationHandler,
                                       MirrorOptimizationHandler)
 from mrnet.datasets.signals import ImageSignal
 from mrnet.networks.mrnet import MRFactory
-
-from training.optimizer import (CompressOptimizationHandler,
-                                CapacityOptimizationHandler)
 
 
 def load_hyperparameters(config_path):
@@ -31,10 +32,6 @@ def get_optim_handler(handler_type):
         return OptimizationHandler
     elif handler_type == 'mirror':
         return MirrorOptimizationHandler
-    elif handler_type == 'compression':
-        return CompressOptimizationHandler
-    elif handler_type == 'capacity':
-        return CapacityOptimizationHandler
     else:
         raise ValueError("Invalid handler_type")
 
@@ -77,8 +74,6 @@ def get_database(hyper, train_test=False, percentage_test=0.05):
 
     base_signal = ImageSignal.init_fromfile(
                         hyper['data_path'],
-                        # domain=[-1 + 1 / (hyper['height'] - 1),
-                        #         1 - 1 / (hyper['height'] - 1)],
                         domain=[-1, 1],
                         channels=hyper['channels'],
                         sampling_scheme=hyper['sampling_scheme'],
@@ -99,13 +94,9 @@ def get_database(hyper, train_test=False, percentage_test=0.05):
         base_signal.add_mask(train_mask)
     train_dataset = [base_signal]
 
-    # delta = 1 / (h-1) + (1 - 1 / (h-1)) / h
-    # new_data = interpolate_grid_and_image(hyper, base_signal)
-    # test_dataset = [ImageSignal(new_data, domain=[-1 + 1/delta, 1 - 1/delta])]
     if train_test:
         base_signal = ImageSignal.init_fromfile(
                             hyper['data_path'],
-                            # domain=[-1 + 1/(h-1), 1 - 1/(h-1)],
                             domain=[-1, 1],
                             channels=hyper['channels'],
                             sampling_scheme=hyper['sampling_scheme'],
@@ -138,6 +129,7 @@ def get_MR_Structure(hyper):
         )
     return train, test
 
+
 def init_model(hyper, file_name, device='cpu'):
     model = MRFactory.from_dict(hyper)
     obj = torch.load(file_name)
@@ -167,46 +159,6 @@ def interpolate_grid_and_image(hyper, base_signal):
     return new_data.permute((2, 0, 1))
 
 
-# class FFTOptimizationHandler(OptimizationHandler):
-#     def __init__(self, model, optimizer, loss_function,
-#                  loss_weights, bound, **kwargs):
-#         super().__init__(model, optimizer, loss_function, loss_weights)
-#         self.bound = (bound / self.get_omega_0())
-#         dev = model.stages[-1].middle_layers[0].linear.weight.get_device()
-#         device = torch.device(f'cuda:{dev}' if dev >= 0 else 'cpu')
-#         self.bound = self.bound.to(device)
-#         self.epochs = 0
-
-#     def _post_process(self, loss_dict):
-
-#         loss = sum([loss_dict[key] * self.loss_weights[key]
-#                     for key in loss_dict.keys()])
-
-#         loss.backward()
-#         self.optimizer.step()
-
-#         for name, weight in self.model.state_dict().items():
-#             if 'middle' in name and 'weight' in name:
-#                 new_weight = torch.clamp(weight,
-#                                          min=-self.bound,
-#                                          max=self.bound)
-#                 with torch.no_grad():
-#                     weight.copy_(new_weight)
-
-#         running_loss = {}
-#         for key, value in loss_dict.items():
-#             running_loss[key] = (running_loss.get(key, 0.0)
-#                                  + value.item())
-#         return running_loss
-
-
-from typing import Sequence
-from mrnet.datasets.utils import make_grid_coords, INVERSE_COLOR_MAPPING
-from mrnet.datasets.sampler import BatchSampler
-import torch
-import matplotlib.pyplot as plt
-import numpy as np
-
 def log_images(pixels, label, hyper, captions=None, **kw):
     if not isinstance(pixels, Sequence):
         pixels = [pixels]
@@ -216,15 +168,13 @@ def log_images(pixels, label, hyper, captions=None, **kw):
         captions = [captions]
     if len(pixels) != len(captions):
         raise ValueError("label and pixels should have the same size")
-    
-    try:
-        # TODO: deal with color transform
-        color_transform = INVERSE_COLOR_MAPPING[hyper.get(
-                                            'color_space', 'RGB')]
-        pixels = [color_transform(p.cpu()).clamp(0, 1) 
-                for p in pixels]
-    except:
-        pass
+
+    # TODO: deal with color transform
+    color_transform = INVERSE_COLOR_MAPPING[hyper.get(
+                                        'color_space', 'RGB')]
+    pixels = [color_transform(p.cpu()).clamp(0, 1)
+              for p in pixels]
+
     plt.imshow(pixels[0])
     # plt.title(label)
     plt.axis('off')
@@ -232,22 +182,24 @@ def log_images(pixels, label, hyper, captions=None, **kw):
     # plt.show()
     plt.close()
 
+
 def get_prediction(model, test_loader, hyper, device):
     datashape = test_loader.shape[1:]
-    
-    coords = make_grid_coords(datashape, 
-                                *hyper['domain'],
-                                len(datashape))
+
+    coords = make_grid_coords(datashape,
+                              *hyper['domain'],
+                              len(datashape))
     pixels = []
-    for batch in BatchSampler(coords, 
-                                hyper['batch_size'], 
-                                drop_last=False):
+    for batch in BatchSampler(coords,
+                              hyper['batch_size'],
+                              drop_last=False):
         batch = torch.stack(batch)
         output_dict = model(batch.to(device))
         pixels.append(output_dict['model_out'].detach().cpu())
-        
+
     pixels = torch.concat(pixels)
     return pixels
+
 
 def log_prediction(model, test_loader, hyper, label, device):
 
@@ -256,7 +208,7 @@ def log_prediction(model, test_loader, hyper, label, device):
 
     pred_pixels = pixels.reshape((*datashape, hyper['channels']))
     if hyper.get('normalize_view', False):
-            vmax = torch.max(pred_pixels)
-            vmin = torch.min(pred_pixels)
-            pred_pixels = (pred_pixels - vmin) / (vmax - vmin)
+        vmax = torch.max(pred_pixels)
+        vmin = torch.min(pred_pixels)
+        pred_pixels = (pred_pixels - vmin) / (vmax - vmin)
     log_images(pred_pixels, label, hyper, category='pred')

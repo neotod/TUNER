@@ -1,7 +1,5 @@
 from warnings import warn
-import re
 import torch
-import torch.nn.functional as F
 import numpy as np
 
 from torch import nn
@@ -61,7 +59,7 @@ class SineLayer(nn.Module):
 
     def init_weights(self):
         if self.period > 0:
-            if self.mode=="uniform":
+            if self.mode == "uniform":
                 self.init_periodic_uniform()
             else:
                 self.init_periodic_sampling()
@@ -74,10 +72,10 @@ class SineLayer(nn.Module):
                     self.linear.weight.uniform_(
                         -np.sqrt(6 / self.in_features) / self.omega_0,
                         np.sqrt(6 / self.in_features) / self.omega_0)
-                    
+
     def init_periodic_uniform(self, used_weights=[]):
         # don't need to choose the origin
-        if self.in_features == 2:   
+        if self.in_features == 2:
             discarded_freqs = set([(0, 0)])
         else:
             discarded_freqs = set()
@@ -88,16 +86,19 @@ class SineLayer(nn.Module):
                 rng = np.random.default_rng(RANDOM_SEED)
                 if self.in_features == 2:
                     possible_frequencies = cartesian_product(
-                        np.arange(0, self.omega_0 + 1), 
+                        np.arange(0, self.omega_0 + 1),
                         np.arange(-self.omega_0, self.omega_0 + 1))
                 else:
                     possible_frequencies = cartesian_product(
-                        *(self.in_features * [np.array(range(-self.omega_0,
-                                                            self.omega_0 + 1))])
-                )
+                        *(self.in_features * [
+                            np.array(range(-self.omega_0,
+                                           self.omega_0 + 1))])
+                    )
                 if discarded_freqs:
                     possible_frequencies = np.array(list(
-                        set(tuple(map(tuple, possible_frequencies))) - set(used_weights)
+                        set(tuple(map(
+                            tuple, possible_frequencies
+                            ))) - set(used_weights)
                     ))
                 chosen_frequencies = torch.from_numpy(
                     rng.choice(possible_frequencies, self.out_features, False)
@@ -168,8 +169,6 @@ class SineLayer(nn.Module):
         if self.period > 0 and self.is_first:
             x = self.linear(input)
         else:
-            # W = torch.tanh(self.omega_0 * self.linear.weight) * self.bound  # UNDO
-            # x = (input @ W.T + self.omega_0 * self.linear.bias)  # UNDO
             x = self.omega_0 * self.linear(input)
         return torch.sin(x)
 
@@ -211,12 +210,12 @@ class SineLayer(nn.Module):
                  Setting bandlimit to {self.__bandlimit}.""")
 
     def __set_low_range(self, var):
-        l = int(var)
-        if l > 0 and l < self.__bandlimit:
+        low_limit = int(var)
+        if low_limit > 0 and low_limit < self.__bandlimit:
             self.__low_range = var
         else:
             self.__low_range = self.__bandlimit // 3
-            warn(f"""Low range {l} must be in [0, {self.__bandlimit}].
+            warn(f"""Low range {low_limit} must be in [0, {self.__bandlimit}].
             Setting bandlimit to {self.__low_range}.""")
 
     def __set_perc_low_freqs(self, var):
@@ -233,8 +232,9 @@ class Siren(nn.Module):
     This SIREN version comes from:
     https://colab.research.google.com/github/vsitzmann/siren/blob/master/explore_siren.ipynb
     """
-    def __init__(self, in_features, hidden_features, hidden_layers, out_features, first_omega_0, hidden_omega_0,
-                  bias=True, outermost_linear=False, superposition_w0=True):
+    def __init__(self, in_features, hidden_features, hidden_layers,
+                 out_features, first_omega_0, hidden_omega_0,
+                 bias=True, outermost_linear=False, superposition_w0=True):
         super().__init__()
 
         self.net = []
@@ -250,8 +250,9 @@ class Siren(nn.Module):
             final_linear = nn.Linear(hidden_features, out_features)
 
             with torch.no_grad():
-                final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / hidden_omega_0,
-                                              np.sqrt(6 / hidden_features) / hidden_omega_0)
+                final_linear.weight.uniform_(
+                    -np.sqrt(6 / hidden_features) / hidden_omega_0,
+                    np.sqrt(6 / hidden_features) / hidden_omega_0)
 
             self.net.append(final_linear)
         else:
@@ -267,7 +268,8 @@ class Siren(nn.Module):
         self.apply(reset_sinelayer)
 
     def forward(self, coords):
-        coords = coords.clone().detach().requires_grad_(True) # allows to take derivative w.r.t. input
+        # allows to take derivative w.r.t. input
+        coords = coords.clone().detach().requires_grad_(True)
         output = self.net(coords)
         return output, coords
 
@@ -287,7 +289,8 @@ class Siren(nn.Module):
                     x.retain_grad()
                     intermed.retain_grad()
 
-                activations['_'.join((str(layer.__class__), "%d" % activation_count))] = intermed
+                activations['_'.join((str(layer.__class__),
+                                      "%d" % activation_count))] = intermed
                 activation_count += 1
             else:
                 x = layer(x)
@@ -295,7 +298,8 @@ class Siren(nn.Module):
                 if retain_grad:
                     x.retain_grad()
 
-            activations['_'.join((str(layer.__class__), "%d" % activation_count))] = x
+            activations['_'.join((str(layer.__class__),
+                                  "%d" % activation_count))] = x
             activation_count += 1
 
         return activations

@@ -1,9 +1,8 @@
 import os
 from pathlib import Path
 import torch
-import os
 from mrnet.training.trainer import MRTrainer
-from mrnet.networks.mrnet import MRFactory
+# from mrnet.networks.mrnet import MRFactory
 from mrnet.training.listener import TrainingListener
 
 from networks.siren import Siren
@@ -20,8 +19,8 @@ if __name__ == "__main__":
 
     hyper['omega_0'] = 64
     hyper['period'] = 0
-    m2 = Siren(in_features=2, hidden_features=10, hidden_layers=2, out_features=3,
-               first_omega_0=60, hidden_omega_0=60)
+    m2 = Siren(in_features=2, hidden_features=10, hidden_layers=2,
+               out_features=3, first_omega_0=60, hidden_omega_0=60)
     optim_handler = get_optim_handler(hyper.get('optim_handler', 'regular'))
     name = os.path.basename(hyper["data_path"])
 
