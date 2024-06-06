@@ -1,3 +1,4 @@
+from typing import Sequence
 from warnings import warn
 import torch
 import numpy as np
@@ -46,6 +47,7 @@ class SineLayer(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
+        print(in_features, out_features)
         self.linear = nn.Linear(in_features, out_features, bias=bias)
         self.mode = mode
 
@@ -234,29 +236,36 @@ class Siren(nn.Module):
     """
     def __init__(self, in_features, hidden_features, hidden_layers,
                  out_features, first_omega_0, hidden_omega_0,
-                 bias=True, outermost_linear=False, superposition_w0=True):
+                 bias=True, outermost_linear=False, superposition_w0=True, 
+                 **kwargs):
         super().__init__()
 
+        if not isinstance(hidden_features, Sequence):
+            hidden_features = [hidden_features] * (hidden_layers + 1)
+
+        hidden_idx = 0
         self.net = []
-        self.net.append(SineLayer(in_features, hidden_features, bias=bias,
-                                  is_first=True, omega_0=first_omega_0))
+        self.net.append(SineLayer(in_features, hidden_features[hidden_idx], bias=bias,
+                                  is_first=True, omega_0=first_omega_0,
+                                  **kwargs))
 
         self.n_layers = hidden_layers + 1
-        for i in range(hidden_layers):
-            self.net.append(SineLayer(hidden_features, hidden_features,
+        while hidden_idx < hidden_layers - 1:
+            hidden_idx += 1
+            self.net.append(SineLayer(hidden_features[hidden_idx], hidden_features[hidden_idx + 1],
                                       is_first=False, omega_0=hidden_omega_0))
 
         if outermost_linear:
-            final_linear = nn.Linear(hidden_features, out_features)
+            final_linear = nn.Linear(hidden_features[-1], out_features)
 
             with torch.no_grad():
                 final_linear.weight.uniform_(
-                    -np.sqrt(6 / hidden_features) / hidden_omega_0,
-                    np.sqrt(6 / hidden_features) / hidden_omega_0)
+                    -np.sqrt(6 / hidden_features[-1]) / hidden_omega_0,
+                    np.sqrt(6 / hidden_features[-1]) / hidden_omega_0)
 
             self.net.append(final_linear)
         else:
-            self.net.append(SineLayer(hidden_features, out_features,
+            self.net.append(SineLayer(hidden_features[-1], out_features,
                                       is_first=False, omega_0=hidden_omega_0))
 
         self.net = nn.Sequential(*self.net)
@@ -312,8 +321,17 @@ if __name__ == '__main__':
     print("Frequencies sampled uniformly")
     print(a.linear.weight/np.pi)
 
-    a = SineLayer(2, 8, bias=True, is_first=True, omega_0=30,
+    b = SineLayer(2, 8, bias=True, is_first=True, omega_0=30,
                   low_range=20, period=2, bandlimit=60, mode="sampling")
-    print(a.linear.weight.shape, a.linear.weight.dtype)
+    print(b.linear.weight.shape, a.linear.weight.dtype)
     print("Frequencies chosen as a spectral sampling")
-    print(a.linear.weight/np.pi)
+    print(b.linear.weight/np.pi)
+
+    c = Siren(in_features=2, hidden_features=[24, 48, 96], hidden_layers=2,
+              out_features=3, first_omega_0=60, hidden_omega_0=60)
+    print(c)
+
+    d = Siren(in_features=2, hidden_features=[24, 48, 96], hidden_layers=2,
+              out_features=3, first_omega_0=60, hidden_omega_0=60,
+              low_range=20, period=2, bandlimit=60, mode="sampling")
+    print(d)
