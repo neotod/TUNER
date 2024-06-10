@@ -23,6 +23,7 @@ class OptimizationHandler:
         self.optimizer = optimizer
         self.loss_function = loss_function
         self.loss_weights = 1.0
+        print(model)
 
     def _pre_process(self):
         self.optimizer.zero_grad()
@@ -46,7 +47,8 @@ class OptimizationHandler:
         # why c0?
         X, gt_dict = batch['c0']
         X['coords'] = X['coords'].to(device)
-        out_dict = self.model(X)
+        pred = self.model(X['coords'])
+        out_dict = {'model_out': {'output': pred[0]}}
 
         loss_dict = self.loss_function(out_dict, gt_dict, device=device)
         print(loss_dict['d0'])

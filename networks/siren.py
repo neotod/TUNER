@@ -22,9 +22,9 @@ def n_cartesian_freqs(high_list):
     # half of cartesian product of list [*high_list, *-high_list]
     # where high_list is a list of positive integers, excluding (0, 0)
     if 0 in high_list:
-        return ((2 * len(high_list) - 1) ** 2) / 2
-    else:
         return ((2 * len(high_list)) ** 2) / 2
+    else:
+        return ((2 * len(high_list) + 1) ** 2) / 2
 
 
 class SineLayer(nn.Module):
@@ -40,7 +40,7 @@ class SineLayer(nn.Module):
     # weight matrix (see supplement Sec. 1.5)
 
     def __init__(self, in_features, out_features, bias=True, is_first=False,
-                 omega_0=30, period=0, mode="uniform", **kwargs):
+                 omega_0=30, period=0, mode="sampling", **kwargs):
         super().__init__()
         self.omega_0 = omega_0
         self.is_first = is_first
@@ -181,10 +181,10 @@ class SineLayer(nn.Module):
 
     def list_1d_high_freqs(self):
         high_list = [0]
-        perc_high_freqs = n_cartesian_freqs(high_list) / self.in_features
+        perc_high_freqs = n_cartesian_freqs(high_list) / self.out_features
         while perc_high_freqs < 1 - self.__perc_low_freqs:
             high_list.append(0)
-            perc_high_freqs = n_cartesian_freqs(high_list) / self.in_features
+            perc_high_freqs = n_cartesian_freqs(high_list) / self.out_features
         number_high_freqs = len(high_list) - 1
         step = (self.__bandlimit - self.__low_range) // number_high_freqs
         high_list = [0] + [
@@ -251,21 +251,22 @@ class Siren(nn.Module):
 
         self.n_layers = hidden_layers + 1
         while hidden_idx < hidden_layers - 1:
-            hidden_idx += 1
-            self.net.append(SineLayer(hidden_features[hidden_idx], hidden_features[hidden_idx + 1],
+            self.net.append(SineLayer(hidden_features[hidden_idx],
+                                      hidden_features[hidden_idx + 1],
                                       is_first=False, omega_0=hidden_omega_0))
+            hidden_idx += 1
 
         if outermost_linear:
-            final_linear = nn.Linear(hidden_features[-1], out_features)
+            final_linear = nn.Linear(hidden_features[hidden_idx], out_features)
 
             with torch.no_grad():
                 final_linear.weight.uniform_(
-                    -np.sqrt(6 / hidden_features[-1]) / hidden_omega_0,
-                    np.sqrt(6 / hidden_features[-1]) / hidden_omega_0)
+                    -np.sqrt(6 / hidden_features[hidden_idx]) / hidden_omega_0,
+                    np.sqrt(6 / hidden_features[hidden_idx]) / hidden_omega_0)
 
             self.net.append(final_linear)
         else:
-            self.net.append(SineLayer(hidden_features[-1], out_features,
+            self.net.append(SineLayer(hidden_features[hidden_idx], out_features,
                                       is_first=False, omega_0=hidden_omega_0))
 
         self.net = nn.Sequential(*self.net)
