@@ -75,18 +75,18 @@ if __name__ == "__main__":
         device = 'cuda:0'
         f = hyper['omega_0'][0]
         hf = hyper['hidden_features'][0][0]
-        m2 = Siren(in_features=2,
-                   hidden_features=[24, 48, 96],
-                   hidden_layers=2,
-                   out_features=3,
-                   first_omega_0=60,
-                   hidden_omega_0=60)
-        # m2 = Siren(in_features=hyper['in_features'],
-        #            hidden_features=hyper['hidden_features'][0],
-        #            hidden_layers=hyper['hidden_layers'],
-        #            out_features=hyper['out_features'],
-        #            first_omega_0=hyper['omega_0'],
-        #            hidden_omega_0=hyper['hidden_omega_0'])
+        # m2 = Siren(in_features=2,
+        #            hidden_features=[24, 48, 96],
+        #            hidden_layers=2,
+        #            out_features=3,
+        #            first_omega_0=60,
+        #            hidden_omega_0=60)
+        m2 = Siren(in_features=hyper['in_features'],
+                   hidden_features=hyper['hidden_features'][0],
+                   hidden_layers=hyper['hidden_layers'],
+                   out_features=hyper['out_features'],
+                   first_omega_0=hyper['omega_0'][0],
+                   hidden_omega_0=hyper['hidden_omega_0'])
         m2.to(device)
         optimizer = torch.optim.Adam(lr=0.005,
                                      params=m2.parameters())
@@ -118,7 +118,7 @@ if __name__ == "__main__":
             )
         psnr[name] = metrics[0]
         psnr_grad[name] = metrics[1]
-    directory = '/home/diana/taming/taming/results/compare_bacon/'
+    directory = '/home/diana/taming/taming/results/'
     with open(directory + dif + '_psnr.csv', 'w') as output:
         writer = csv.writer(output)
         for key, value in psnr.items():

@@ -30,8 +30,8 @@ def log_data(model, train_loader, test_loader, device, batch_size, channels,
         X, gt_dict = batch['c0']
         X['coords'] = X['coords'].to(device)
         X['coords'] = X['coords'].requires_grad_(True)
-        output_dict = model(X)
-        pixels.append(output_dict['model_out']['output'].detach().cpu())
+        pred = model(X['coords'])[0]
+        pixels.append(pred.detach().cpu())
         gt.append(gt_dict['d0'].detach().cpu())
     pixels = torch.concat(pixels)
     gt = torch.concat(gt)
@@ -48,15 +48,15 @@ def log_data(model, train_loader, test_loader, device, batch_size, channels,
                               drop_last=False):
         batch = torch.stack(batch)
         batch.requires_grad = True
-        output_dict = model({'coords': batch.to(device)})
-        pixels.append(output_dict['model_out']['output'].detach().cpu())
-        value = output_dict['model_out']
+        pred = model(batch.to(device))[0]
+        pixels.append(pred.detach().cpu())
+        value = {'output': pred}
         if color_space == 'YCbCr':
             value = value[:, 0:1]
         elif color_space == 'RGB':
             value = rgb_to_grayscale(value['output'])
         grads.append(gradient(value,
-                              output_dict['model_in']['coords']
+                              pred
                               ).detach().cpu())
 
     pixels = torch.concat(pixels)
