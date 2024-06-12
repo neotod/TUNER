@@ -2,11 +2,22 @@
 import os
 from matplotlib import pyplot as plt
 from mrnet.logs.handler import (make_grid_coords, BatchSampler,
-                                rgb_to_grayscale, gradient)
+                                rgb_to_grayscale)
 import torch
 import numpy as np
 from PIL import Image
 from skimage.filters import sobel
+
+
+DIR = os.getcwd()
+
+
+def gradient(y, x, grad_outputs=None):
+    if grad_outputs is None:
+        grad_outputs = torch.ones_like(y)
+    grad = torch.autograd.grad(y, [x], grad_outputs=grad_outputs,
+                               create_graph=True)[0]
+    return grad
 
 
 def log_metrics(gt, pred, name):
@@ -18,11 +29,10 @@ def log_metrics(gt, pred, name):
 
 def log_data(model, train_loader, test_loader, device, batch_size, channels,
              name):
-
-    directory = '/home/diana/mrnet-compression/mrnet/runs/logs/bacon/' + name
+    directory = DIR + f'/runs/logs/{name}'
+    print(f'\nResults saved in {directory}\n')
     if not os.path.exists(directory):
         os.makedirs(directory)
-
     pixels = []
     gt = []
     color_space = 'RGB'
@@ -47,8 +57,7 @@ def log_data(model, train_loader, test_loader, device, batch_size, channels,
     for batch in BatchSampler(coords, batch_size,
                               drop_last=False):
         batch = torch.stack(batch)
-        batch.requires_grad = True
-        pred = model(batch.to(device))[0]
+        pred, coords = model(batch.to(device))
         pixels.append(pred.detach().cpu())
         value = {'output': pred}
         if color_space == 'YCbCr':
@@ -56,7 +65,7 @@ def log_data(model, train_loader, test_loader, device, batch_size, channels,
         elif color_space == 'RGB':
             value = rgb_to_grayscale(value['output'])
         grads.append(gradient(value,
-                              pred
+                              coords,
                               ).detach().cpu())
 
     pixels = torch.concat(pixels)
@@ -85,7 +94,7 @@ def log_data(model, train_loader, test_loader, device, batch_size, channels,
     gt_img = train_loader.data.permute((1, 2, 0))
     psnr_grad = log_grad_psnr(directory, gt_img.numpy(), grad_img)
     return [psnr, psnr_grad]
-
+    # return [psnr]
 
 def log_gradmagnitude(grads: torch.Tensor, label: str, **kw):
     mag = np.hypot(grads[:, :, 0].squeeze(-1).numpy(),

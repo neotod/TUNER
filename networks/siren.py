@@ -47,7 +47,6 @@ class SineLayer(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
-        print(in_features, out_features)
         self.linear = nn.Linear(in_features, out_features, bias=bias)
         self.mode = mode
 
@@ -151,7 +150,7 @@ class SineLayer(nn.Module):
                 chosen_low_frequencies = torch.from_numpy(
                     rng.choice(possible_low_frequencies,
                                int(np.ceil(self.__perc_low_freqs * n_freqs)),
-                               False))
+                               True))
                 chosen_high_frequencies = torch.from_numpy(
                     rng.choice(possible_high_frequencies,
                                int(np.floor((1 - self.__perc_low_freqs) *
@@ -185,22 +184,13 @@ class SineLayer(nn.Module):
         while perc_high_freqs < 1 - self.__perc_low_freqs:
             high_list.append(0)
             perc_high_freqs = n_cartesian_freqs(high_list) / self.out_features
-        number_high_freqs = len(high_list) - 1
-        step = (self.__bandlimit - self.__low_range) // number_high_freqs
+        number_high_freqs = len(high_list)
+        step = round((self.__bandlimit) / number_high_freqs)
         high_list = [0] + [
-            self.__low_range + i * step for i in range(number_high_freqs)
+            i * step for i in range(number_high_freqs)
             ]
         high_list[-1] = self.__bandlimit
         return high_list
-
-    def __get_bandlimit(self):
-        return self.__bandlimit
-
-    def __get_low_range(self):
-        return self.__low_range
-
-    def __get_perc_low_freqs(self):
-        return self.__perc_low_freqs
 
     def __set_bandlimit(self, var):
         b = int(var)
@@ -208,7 +198,7 @@ class SineLayer(nn.Module):
             self.__bandlimit = b
         else:
             self.__bandlimit = int(self.omega_0)
-            warn(f"""Bandlimit {b} must be a positive integer.
+            print(f"""Bandlimit {b} must be a positive integer.
                  Setting bandlimit to {self.__bandlimit}.""")
 
     def __set_low_range(self, var):
@@ -216,16 +206,16 @@ class SineLayer(nn.Module):
         if low_limit > 0 and low_limit < self.__bandlimit:
             self.__low_range = var
         else:
-            self.__low_range = self.__bandlimit // 3
-            warn(f"""Low range {low_limit} must be in [0, {self.__bandlimit}].
+            self.__low_range = 12
+            print(f"""Low range {low_limit} must be in [0, {self.__bandlimit}].
             Setting bandlimit to {self.__low_range}.""")
 
     def __set_perc_low_freqs(self, var):
         if var > 0 and var <= 1:
             self.__perc_low_freqs = var
         else:
-            self.__perc_low_freqs = 0.5
-            warn(f"""Percentage of low frequencies {var} must be in [0, 1].
+            self.__perc_low_freqs = 0.7
+            print(f"""Percentage of low frequencies {var} must be in [0, 1].
             Setting bandlimit to {self.__perc_low_freqs}.""")
 
 
@@ -236,7 +226,7 @@ class Siren(nn.Module):
     """
     def __init__(self, in_features, hidden_features, hidden_layers,
                  out_features, first_omega_0, hidden_omega_0,
-                 bias=True, outermost_linear=False, superposition_w0=True, 
+                 bias=True, outermost_linear=True, superposition_w0=True, 
                  **kwargs):
         super().__init__()
 
@@ -250,7 +240,7 @@ class Siren(nn.Module):
                                   **kwargs))
 
         self.n_layers = hidden_layers + 1
-        while hidden_idx < hidden_layers - 1:
+        while hidden_idx < hidden_layers:
             self.net.append(SineLayer(hidden_features[hidden_idx],
                                       hidden_features[hidden_idx + 1],
                                       is_first=False, omega_0=hidden_omega_0))
@@ -336,3 +326,4 @@ if __name__ == '__main__':
               out_features=3, first_omega_0=60, hidden_omega_0=60,
               low_range=20, period=2, bandlimit=60, mode="sampling")
     print(d)
+    print(d.net[0].linear.weight)
