@@ -12,15 +12,16 @@ class MRModule(nn.Module):
     """
     Built upon SIREN code
     """
-    def __init__(self, in_features: int, 
-                    hidden_features: Union[int, Sequence], 
-                    hidden_layers: int, 
-                    out_features: int, 
-                    first_omega_0: int, 
-                    hidden_omega_0=1, 
-                    bias=False, 
-                    period=0,
-                    prevknowledge=0):
+    def __init__(self, in_features: int,
+                 hidden_features: Union[int, Sequence],
+                 hidden_layers: int,
+                 out_features: int,
+                 first_omega_0: int,
+                 hidden_omega_0=1,
+                 bias=False,
+                 period=0,
+                 prevknowledge=0,
+                 **kwargs):
         super().__init__()
 
         self.bias = bias
@@ -31,13 +32,15 @@ class MRModule(nn.Module):
 
         hidden_idx = 0
         self.first_layer = SineLayer(in_features, hidden_features[hidden_idx],
-                                      bias=bias, is_first=True, omega_0=first_omega_0, period=period)
-        
+                                     bias=bias, is_first=True,
+                                     omega_0=first_omega_0, period=period,
+                                     **kwargs)
+
         middle = []
         while hidden_idx < hidden_layers:
             middle.append(
-                SineLayer(hidden_features[hidden_idx] 
-                           + (prevknowledge if hidden_idx == 0 else 0),
+                SineLayer(hidden_features[hidden_idx]
+                          + (prevknowledge if hidden_idx == 0 else 0),
                           hidden_features[hidden_idx + 1], bias=True,
                           is_first=False, omega_0=hidden_omega_0)
             )
@@ -50,16 +53,16 @@ class MRModule(nn.Module):
         # for i in range(hidden_layers - 1):
         #     middle.append(SineLayer(hidden_features, hidden_features, bias=True,
         #                               is_first=False, omega_0=hidden_omega_0))
-        
+
         self.middle_layers = nn.Sequential(*middle)
-        
-        self.final_linear = nn.Linear(hidden_features[hidden_idx], out_features)
+
+        self.final_linear = nn.Linear(hidden_features[hidden_idx],
+                                      out_features)
         with torch.no_grad():
             self.final_linear.weight.uniform_(
                     -np.sqrt(6 / hidden_features[hidden_idx]) / hidden_omega_0,
                     np.sqrt(6 / hidden_features[hidden_idx]) / hidden_omega_0)
-            
-   
+
     # Check if internal layers initialization is needed/correct
     def reset_weights(self):
         def reset_sinelayer(m):
@@ -90,7 +93,7 @@ class MRModule(nn.Module):
     @property
     def omega_0(self):
         return self.first_layer.omega_0
-    
+
     @property
     def omega_G(self):
         return self.middle_layers[0].omega_0
@@ -107,15 +110,16 @@ class MRNet(nn.Module):
     """
     Build upon SIREN code
     """
-    def __init__(self, in_features, 
-                    hidden_features, 
-                    hidden_layers, 
-                    out_features,
-                    first_omega_0, 
-                    hidden_omega_0=1,
-                    bias=False, 
-                    period=0,
-                    superposition_w0=True):
+    def __init__(self, in_features,
+                 hidden_features,
+                 hidden_layers,
+                 out_features,
+                 first_omega_0,
+                 hidden_omega_0=1,
+                 bias=False,
+                 period=0,
+                 superposition_w0=True,
+                 **kwargs):
         super().__init__()
 
         self.superposition_w0 = superposition_w0
@@ -123,14 +127,15 @@ class MRNet(nn.Module):
         self.out_features = out_features
         self.bias = bias
         self.period = period
-        first_module = MRModule(in_features, 
-                                hidden_features, 
-                                hidden_layers, 
+        first_module = MRModule(in_features,
+                                hidden_features,
+                                hidden_layers,
                                 out_features,
-                                first_omega_0, 
+                                first_omega_0,
                                 hidden_omega_0,
                                 bias=bias,
-                                period=period)
+                                period=period,
+                                **kwargs)
 
         self.stages = nn.ModuleList([first_module])
 
@@ -143,12 +148,14 @@ class MRNet(nn.Module):
                 old_frequencies.append(last_stage_frequencies.numpy())
                 stage.first_layer.linear.weight.to(device)
             old_frequencies = np.concatenate(old_frequencies)
-            
+
             mrmodule.first_layer.init_periodic_weights(
-                tuple(map(tuple, (old_frequencies * self.period / (2 * torch.pi)).astype(np.int32)))
+                tuple(map(tuple, (old_frequencies * self.period /
+                                  (2 * torch.pi)).astype(np.int32)))
             )
         else:
-            raise NotImplementedError("superposition_w0 'False' only implemented for periodic signals")
+            raise NotImplementedError("superposition_w0 'False' only" +
+                                      "implemented for periodic signals")
             # w0 = mrmodule.first_layer.omega_0
             # prev_w0 = self.top_stage.first_layer.omega_0
             # layer_shape = mrmodule.first_layer.linear.weight.shape
@@ -164,15 +171,14 @@ class MRNet(nn.Module):
             # with torch.no_grad():
             #     mrmodule.first_layer.linear.weight.copy_(p)
 
-  
-    def _add_stage(self, first_omega_0, hidden_features, 
-                        hidden_layers, hidden_omega_0, bias, prevknowledge):
-       
-        newstage = MRModule(self.in_features, 
-                            hidden_features, 
-                            hidden_layers, 
+    def _add_stage(self, first_omega_0, hidden_features,
+                   hidden_layers, hidden_omega_0, bias, prevknowledge):
+
+        newstage = MRModule(self.in_features,
+                            hidden_features,
+                            hidden_layers,
                             self.out_features,
-                            first_omega_0, 
+                            first_omega_0,
                             hidden_omega_0,
                             bias=bias,
                             period=self.period,
@@ -182,8 +188,8 @@ class MRNet(nn.Module):
             self.init_lean_weights(newstage)
         self.stages.append(newstage)
 
-    def add_stage(self, first_omega_0, hidden_features, 
-                        hidden_layers, hidden_omega_0=1, bias=False):
+    def add_stage(self, first_omega_0, hidden_features,
+                  hidden_layers, hidden_omega_0=1, bias=False):
         raise NotImplementedError
 
     def n_stages(self):
@@ -315,7 +321,7 @@ class MRFactory:
         omega0, hidden_omega0 = hyper['omega_0'], hyper['hidden_omega_0']
         if hyper['model'] == 'M':
             MRClass = MNet
-        elif hyper['model'] == 'L': 
+        elif hyper['model'] == 'L':
             MRClass = LNet
         elif hyper['model'] == 'S':
             MRClass = SNet
@@ -325,7 +331,10 @@ class MRFactory:
         hfeat, hlayers = hyper['hidden_features'], hyper['hidden_layers']
         # TODO: remove in future versions; for compatibility only (periodic->period).
         period = 2 if hyper.get('periodic', False) else 0
-        return  MRClass(
+        bandlimit = (omega0[0] if isinstance(omega0, Sequence) else omega0) // 2
+        low_range = hyper.get('low_range', 10)
+        perc_low_freqs = hyper.get('perc_low_freqs', 0.7)
+        return MRClass(
             hyper['in_features'],
             hfeat[0] if isinstance(hfeat, Sequence) else hfeat,
             hlayers[0] if isinstance(hlayers, Sequence) else hlayers,
@@ -334,7 +343,10 @@ class MRFactory:
             hidden_omega0[0] if isinstance(hidden_omega0, Sequence) else hidden_omega0,
             bias=hyper.get('bias', False),
             period=hyper.get('period', period),
-            superposition_w0=hyper.get('superposition_w0', True)
+            superposition_w0=hyper.get('superposition_w0', True),
+            bandlimit=bandlimit,
+            low_range=low_range,
+            perc_low_freqs=perc_low_freqs
         )
 
     def module_from_dict(hyper, idx=None):

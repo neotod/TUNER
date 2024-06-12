@@ -14,10 +14,10 @@ if __name__ == "__main__":
     torch.manual_seed(777)
 
     # -- hyperparameters in configs --#
-    hyper = load_hyperparameters("/home/diana/taming/taming/configs/config_init.yml")
+    hyper = load_hyperparameters("./configs/config_init.yml")
     project_name = hyper["project_name"] = "learn_bounds"
     train_dataset, test_dataset = get_database(hyper, False, 0.1)
-
+    hyper['perc_low_freqs'] = 0.1
     m2 = MRFactory.from_dict(hyper)
     optim_handler = get_optim_handler(hyper.get('optim_handler', 'regular'))
     name = os.path.basename(hyper["data_path"])

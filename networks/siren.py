@@ -151,12 +151,19 @@ class SineLayer(nn.Module):
                     rng.choice(possible_low_frequencies,
                                int(np.ceil(self.__perc_low_freqs * n_freqs)),
                                True))
-                chosen_high_frequencies = torch.from_numpy(
-                    rng.choice(possible_high_frequencies,
-                               int(np.floor((1 - self.__perc_low_freqs) *
-                                            n_freqs)),
-                               False))
-
+                try:
+                    chosen_high_frequencies = torch.from_numpy(
+                        rng.choice(possible_high_frequencies,
+                                   int(np.floor((1 - self.__perc_low_freqs) *
+                                                n_freqs)),
+                                   False))
+                except:
+                    chosen_high_frequencies = torch.from_numpy(
+                        rng.choice(possible_high_frequencies,
+                                   int(np.floor((1 - self.__perc_low_freqs) *
+                                                n_freqs)),
+                                   
+                                   True))
                 chosen_frequencies = torch.cat(
                     (torch.eye(self.in_features),  # initialize with basis
                      chosen_low_frequencies,
@@ -186,8 +193,9 @@ class SineLayer(nn.Module):
             perc_high_freqs = n_cartesian_freqs(high_list) / self.out_features
         number_high_freqs = len(high_list)
         step = round((self.__bandlimit) / number_high_freqs)
+        step = max(step, 1)
         high_list = [0] + [
-            i * step for i in range(number_high_freqs)
+            self.__low_range + i * step for i in range(number_high_freqs)
             ]
         high_list[-1] = self.__bandlimit
         return high_list
@@ -198,8 +206,8 @@ class SineLayer(nn.Module):
             self.__bandlimit = b
         else:
             self.__bandlimit = int(self.omega_0)
-            print(f"""Bandlimit {b} must be a positive integer.
-                 Setting bandlimit to {self.__bandlimit}.""")
+            print(f"Bandlimit {b} must be a positive integer." +
+                  f"Setting bandlimit to {self.__bandlimit}.")
 
     def __set_low_range(self, var):
         low_limit = int(var)
@@ -207,16 +215,17 @@ class SineLayer(nn.Module):
             self.__low_range = var
         else:
             self.__low_range = 12
-            print(f"""Low range {low_limit} must be in [0, {self.__bandlimit}].
-            Setting bandlimit to {self.__low_range}.""")
+            print(f"Low range {low_limit} must be in [0, " +
+                  f"{self.__bandlimit}]. Setting bandlimit to",
+                  self.__low_range)
 
     def __set_perc_low_freqs(self, var):
         if var > 0 and var <= 1:
             self.__perc_low_freqs = var
         else:
             self.__perc_low_freqs = 0.7
-            print(f"""Percentage of low frequencies {var} must be in [0, 1].
-            Setting bandlimit to {self.__perc_low_freqs}.""")
+            print(f"Percentage of low frequencies {var} must be in [0, 1]." +
+                  f"Setting bandlimit to {self.__perc_low_freqs}.")
 
 
 class Siren(nn.Module):
