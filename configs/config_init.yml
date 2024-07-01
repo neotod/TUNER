@@ -1,6 +1,6 @@
 # Logging
 project_name: init
-logger: wandb
+logger: local
 # Model Class (S, L, M)
 model: M
 positive_freqs: False
@@ -40,22 +40,22 @@ opt_method: Adam
 lr: 0.0001
 loss_tol: 0.00000000001
 diff_tol: 0.0
-max_epochs_per_stage: 100
+max_epochs_per_stage: 10
 batch_size: 256 * 256
 bounds: [1., .1]
 learn_bounds: True
 
 # Image
-data_path: /home/diana/mrnet-compression/mrnet/data/img/kodak/two_macaws.png
-width: 256
-height: 256
+data_path: data/kodak/two_macaws.png
+width: 64
+height: 64
 channels: 3
 #see: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
 color_space: RGB
 
 # Computation (Only vary between 'cpu' and 'cuda')
-device: cuda
-eval_device: cuda
+device: cpu
+eval_device: cpu
 
 # Etc
 save_format: 'general'

@@ -15,7 +15,7 @@ class Pruner:
 
     def prune(self, percentages_to_prune):
         for i, (_, module) in enumerate(self.model.named_modules()):
-            amount = percentages_to_prune[i]
             if isinstance(module, SineLayer):
-                prune.ln_structured(module, name='weight', amount=amount,
-                                    dim=self.dim, p=self.p)
+                linear = module.linear
+                prune.ln_structured(linear, name='weight', amount=0.1,
+                                    dim=self.dim, n=self.p)
