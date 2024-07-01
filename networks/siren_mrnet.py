@@ -1,5 +1,5 @@
 from typing import Sequence
-from warnings import warn
+from warnings import WarningMessage, warn
 import torch
 import numpy as np
 
@@ -39,22 +39,28 @@ class SineLayer(nn.Module):
     # keep the magnitude of activations constant, but boost gradients to the
     # weight matrix (see supplement Sec. 1.5)
 
-    def __init__(self, in_features, out_features, bias=True, is_first=False,
-                 omega_0=30, period=0, mode="sampling", **kwargs):
+    def __init__(self, in_features: int, out_features: int, bias: bool = True,
+                 is_first: bool = False, omega_0: int = 30, period: float = 0,
+                 mode: str = "sampling", **kwargs):
         super().__init__()
         self.omega_0 = omega_0
         self.is_first = is_first
+        self.period = period
 
         self.in_features = in_features
         self.out_features = out_features
         self.linear = nn.Linear(in_features, out_features, bias=bias)
         self.mode = mode
 
-        self.__set_bandlimit(kwargs.get('bandlimit', 0))
-        self.__set_low_range(kwargs.get('low_range', 0))
-        self.__set_perc_low_freqs(kwargs.get('perc_low_freqs', 0.5))
+        if is_first:
+            self.__set_bandlimit(kwargs.get('bandlimit', omega_0))
+            self.__set_low_range(kwargs.get('low_range', 12))
+            self.__set_perc_low_freqs(kwargs.get('perc_low_freqs', 0.7))
 
-        self.period = period
+        if 'bounds' in kwargs and kwargs['bounds']:
+            self.class_bounds = kwargs['bounds']  # UNDO
+            self.bounds = nn.Parameter(
+                0.5 * torch.ones((self.in_features), requires_grad=True))
         self.init_weights()
 
     def init_weights(self):
@@ -71,7 +77,7 @@ class SineLayer(nn.Module):
                 else:
                     self.linear.weight.uniform_(
                         -np.sqrt(6 / self.in_features) / self.omega_0,
-                        np.sqrt(6 / self.in_features) / self.omega_0)
+                        np.sqrt(6 / self.in_features) / self.omega_0)          
 
     def init_periodic_uniform(self, used_weights=[]):
         # don't need to choose the origin
@@ -124,6 +130,8 @@ class SineLayer(nn.Module):
                         ({self.out_features}) as input dimensions
                         ({self.in_features})."""
                 n_freqs = self.out_features - self.in_features
+                n_low_freqs = int(np.ceil(self.__perc_low_freqs * n_freqs))
+                n_high_freqs = n_freqs - n_low_freqs
                 rng = np.random.default_rng(RANDOM_SEED)
                 possible_low_frequencies = cartesian_product(
                     np.arange(0, self.__low_range + 1),
@@ -148,20 +156,17 @@ class SineLayer(nn.Module):
                     ))
                 chosen_low_frequencies = torch.from_numpy(
                     rng.choice(possible_low_frequencies,
-                               int(np.ceil(self.__perc_low_freqs * n_freqs)),
+                               n_low_freqs,
                                True))
                 try:
                     chosen_high_frequencies = torch.from_numpy(
                         rng.choice(possible_high_frequencies,
-                                   int(np.floor((1 - self.__perc_low_freqs) *
-                                                n_freqs)),
+                                   n_high_freqs,
                                    False))
                 except:
                     chosen_high_frequencies = torch.from_numpy(
                         rng.choice(possible_high_frequencies,
-                                   int(np.floor((1 - self.__perc_low_freqs) *
-                                                n_freqs)),
-                                   
+                                   n_high_freqs,
                                    True))
                 chosen_frequencies = torch.cat(
                     (torch.eye(self.in_features),  # initialize with basis
@@ -169,8 +174,17 @@ class SineLayer(nn.Module):
                      chosen_high_frequencies))
                 self.linear.weight = nn.Parameter(
                     chosen_frequencies.float() * 2 * torch.pi / self.period)
+
                 # first layer will not be updated during training
                 self.linear.weight.requires_grad = False
+
+                if hasattr(self, 'bounds'):
+                    bounds = torch.cat([
+                        self.class_bounds[0] * torch.ones(n_low_freqs +
+                                                          self.in_features),
+                        self.class_bounds[1] * torch.ones(n_high_freqs)
+                    ])
+                    self.bounds = nn.Parameter(bounds)
 
     def forward(self, input):
         if self.period > 0 and self.is_first:

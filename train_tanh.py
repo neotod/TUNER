@@ -5,13 +5,9 @@ import numpy as np
 import torch
 
 from mrnet.training.trainer import MRTrainer
-from mrnet.networks.mrnet import MRFactory
+from networks.mrnet import MRFactory
 from mrnet.training.listener import TrainingListener
 from mrnet.training.optimizer import OptimizationHandler
-
-from training.tracking_logger import TrackTrainingListener
-from networks.initialize import Initializer
-from training.optimizer import ClampOptimizationHandler
 
 from utils import (create_clamps, load_hyperparameters,
                    get_database, get_optim_handler)

@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from logs.handler_base import log_data
 from networks.siren import Siren
 from utils import load_hyperparameters, get_database
+from training.pruner import Pruner
 
 
 def mse_loss(output_dict, gt_dict, **kwargs):
@@ -46,7 +47,13 @@ if __name__ == "__main__":
     current_diff_tol = 1e-5
     epochs = hyper['max_epochs_per_stage']
     dataset = train_dataset[0]
+
+    pruner = Pruner(model, p=1, dim=1)
+
     for epoch in range(epochs):
+        if epoch == 50:
+            pruner.prune([0.5, 0.5])
+
         for batch in dataset:
 
             optimizer.zero_grad()
@@ -84,3 +91,4 @@ if __name__ == "__main__":
         model, train_dataset[0], test_dataset[0], device,
         hyper['batch_size'], hyper['channels'], tname
         )
+    print(list(model.net[0].named_buffers()))

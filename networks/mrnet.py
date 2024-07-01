@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from .siren import SineLayer
+from .siren_mrnet import SineLayer
 from torch import nn
 from torch.nn.parameter import Parameter
 from typing import Iterator, Sequence, Union
@@ -37,12 +37,14 @@ class MRModule(nn.Module):
                                      **kwargs)
 
         middle = []
+        bounds = kwargs.get('bounds', False)
         while hidden_idx < hidden_layers:
             middle.append(
                 SineLayer(hidden_features[hidden_idx]
                           + (prevknowledge if hidden_idx == 0 else 0),
                           hidden_features[hidden_idx + 1], bias=True,
-                          is_first=False, omega_0=hidden_omega_0)
+                          is_first=False, omega_0=hidden_omega_0,
+                          bounds=bounds)
             )
             hidden_idx += 1
         # middle.append(
@@ -51,8 +53,9 @@ class MRModule(nn.Module):
         #                         is_first=False, omega_0=hidden_omega_0)
         # )
         # for i in range(hidden_layers - 1):
-        #     middle.append(SineLayer(hidden_features, hidden_features, bias=True,
-        #                               is_first=False, omega_0=hidden_omega_0))
+        #     middle.append(SineLayer(hidden_features, hidden_features,
+        #                             bias=True, is_first=False,
+        #                             omega_0=hidden_omega_0))
 
         self.middle_layers = nn.Sequential(*middle)
 
@@ -100,10 +103,27 @@ class MRModule(nn.Module):
 
     def forward(self, coords, prevbasis=None):
         proj = self.first_layer(coords)
-        basis = (self.middle_layers(proj) if prevbasis is None 
-                else self.middle_layers(torch.cat([proj, prevbasis], dim=-1)) )
+        basis = (self.middle_layers(proj) if prevbasis is None
+                 else self.middle_layers(torch.cat([proj, prevbasis], dim=-1)))
         out = self.final_linear(basis)
         return out, basis
+
+
+class MRBoundedModule(MRModule):
+
+    def forward(self, coords, prevbasis=None):
+        proj = self.first_layer(coords)
+        for i, layer in enumerate(self.middle_layers):
+            boost = 30 / layer.omega_0
+            layer.weight = nn.Parameter(
+                layer.bounds * boost *
+                torch.tanh(layer.linear.weight * layer.omega_0))
+            if prevbasis is not None and i == 0:
+                proj = layer(torch.cat([proj, prevbasis], dim=-1))
+            else:
+                proj = layer(proj)
+        out = self.final_linear(proj)
+        return out, proj
 
 
 class MRNet(nn.Module):
@@ -127,16 +147,17 @@ class MRNet(nn.Module):
         self.out_features = out_features
         self.bias = bias
         self.period = period
-        first_module = MRModule(in_features,
-                                hidden_features,
-                                hidden_layers,
-                                out_features,
-                                first_omega_0,
-                                hidden_omega_0,
-                                bias=bias,
-                                period=period,
-                                **kwargs)
-
+        bounds = kwargs.get('bounds', False)
+        self.module = MRBoundedModule if bounds else MRModule
+        first_module = self.module(in_features,
+                                   hidden_features,
+                                   hidden_layers,
+                                   out_features,
+                                   first_omega_0,
+                                   hidden_omega_0,
+                                   bias=bias,
+                                   period=period,
+                                   **kwargs)
         self.stages = nn.ModuleList([first_module])
 
     def init_lean_weights(self, mrmodule: MRModule):
@@ -174,16 +195,17 @@ class MRNet(nn.Module):
     def _add_stage(self, first_omega_0, hidden_features,
                    hidden_layers, hidden_omega_0, bias, prevknowledge):
 
-        newstage = MRModule(self.in_features,
-                            hidden_features,
-                            hidden_layers,
-                            self.out_features,
-                            first_omega_0,
-                            hidden_omega_0,
-                            bias=bias,
-                            period=self.period,
-                            prevknowledge=prevknowledge
-                            ).to(self.current_device())
+        # TODO: Add learable bounds for multiresolution
+        newstage = self.module(self.in_features,
+                               hidden_features,
+                               hidden_layers,
+                               self.out_features,
+                               first_omega_0,
+                               hidden_omega_0,
+                               bias=bias,
+                               period=self.period,
+                               prevknowledge=prevknowledge
+                               ).to(self.current_device())
         if not self.superposition_w0:
             self.init_lean_weights(newstage)
         self.stages.append(newstage)
@@ -196,7 +218,7 @@ class MRNet(nn.Module):
         return len(self.stages)
 
     @property
-    def top_stage(self)-> MRModule:
+    def top_stage(self) -> MRModule:
         return self.stages[-1]
 
     def _aggregate_resolutions(self, mroutputs, mrweights, bias=False):
@@ -209,21 +231,21 @@ class MRNet(nn.Module):
             weighted = torch.mul(concatenated, mrweights)
             return torch.sum(weighted, 1).unsqueeze(-1)
         # Same weights for all samples
-        # aggr_layer = nn.Linear(self.n_stages(), self.out_features, 
+        # aggr_layer = nn.Linear(self.n_stages(), self.out_features,
         #                         bias=bias, device=device)
         # for i in range(self.out_features):
         #     with torch.no_grad():
         #         aggr_layer.weight[i] = mrweights
-       
+
         # aggregated = aggr_layer(torch.stack(mroutputs, dim=-1)).squeeze(-1)
         dims = [1] * len(mroutputs[0].shape)
-        return (mrweights.view(self.n_stages(), 
+        return (mrweights.view(self.n_stages(),
                                *dims) * torch.stack(mroutputs)).sum(dim=0)
 
     def parameters(self, recurse: bool = True) -> Iterator[Parameter]:
         if recurse:
             return super().parameters(recurse)
-        
+
         return self.top_stage.parameters()
 
     def total_parameters(self):
@@ -248,19 +270,18 @@ class MNet(MRNet):
             hidden_omega0[0] if isinstance(hidden_omega0, Sequence) else hidden_omega0,
             bias=hyper.get('bias', False),
             period=hyper.get('period', 0),
-            superposition_w0=hyper['superposition_w0']
+            superposition_w0=hyper['superposition_w0'],
         )
 
-    def add_stage(self, first_omega_0, hidden_features, 
+    def add_stage(self, first_omega_0, hidden_features,
                   hidden_layers, hidden_omega_0, bias):
         prev = self.top_stage.hidden_features[-1]
-        return self._add_stage(first_omega_0, hidden_features, hidden_layers, hidden_omega_0, bias, prev)
-    
+        return self._add_stage(first_omega_0, hidden_features, hidden_layers,
+                               hidden_omega_0, bias, prev)
+
     def forward(self, coords, mrweights=None):
         # allows to take derivative w.r.t. input
-        coords = coords.clone().detach().requires_grad_(True) 
-        from IPython import embed
-        
+        coords = coords.clone().detach().requires_grad_(True)
         mroutputs = []
         basis = None
         for mrstage in self.stages:
@@ -268,44 +289,48 @@ class MNet(MRNet):
             mroutputs.append(out)
         y = self._aggregate_resolutions(mroutputs, mrweights)
         return {"model_in": coords, "model_out": y}
-    
+
     def class_code(self):
         return 'M'
+
 
 class LNet(MRNet):
 
     def init_from_dict(hyper):
         omega0, hidden_omega0 = hyper['omega_0'], hyper['hidden_omega_0']
-        return  LNet(
+        return LNet(
             hyper['in_features'],
             hyper['hidden_features'],
             hyper['hidden_layers'],
             hyper['out_features'],
             omega0[0] if isinstance(omega0, Sequence) else omega0,
-            hidden_omega0[0] if isinstance(hidden_omega0, Sequence) else hidden_omega0,
+            hidden_omega0[0] if isinstance(hidden_omega0,
+                                           Sequence) else hidden_omega0,
             bias=hyper.get('bias', False),
             period=hyper.get('period', 0),
-            superposition_w0=hyper['superposition_w0']
+            superposition_w0=hyper['superposition_w0'],
         )
 
-    def add_stage(self, first_omega_0, hidden_features, 
+    def add_stage(self, first_omega_0, hidden_features,
                   hidden_layers, hidden_omega_0, bias):
-        return self._add_stage(first_omega_0, hidden_features, hidden_layers, hidden_omega_0, bias, 0)
+        return self._add_stage(first_omega_0, hidden_features, hidden_layers,
+                               hidden_omega_0, bias, 0)
 
     def forward(self, coords, mrweights=None):
         # allows to take derivative w.r.t. input
-        coords = coords.clone().detach().requires_grad_(True) 
+        coords = coords.clone().detach().requires_grad_(True)
         mroutputs = []
         for stage in self.stages:
             out, _ = stage(coords)
             mroutputs.append(out)
-        
+
         # we could use another layer for a weighted sum
         y = self._aggregate_resolutions(mroutputs, mrweights)
         return {"model_in": coords, "model_out": y}
 
     def class_code(self):
         return 'L'
+
 
 class SNet(MRNet):
 
@@ -314,6 +339,7 @@ class SNet(MRNet):
 
     def class_code(self):
         return 'S'
+
 
 class MRFactory:
 
@@ -329,11 +355,15 @@ class MRFactory:
             raise ValueError("model should be in ['M','L','M1']")
 
         hfeat, hlayers = hyper['hidden_features'], hyper['hidden_layers']
-        # TODO: remove in future versions; for compatibility only (periodic->period).
+        # TODO: remove in future versions; for compatibility
+        # only (periodic->period).
         period = 2 if hyper.get('periodic', False) else 0
-        bandlimit = (omega0[0] if isinstance(omega0, Sequence) else omega0) // 2
+        bandlimit = (omega0[0] if isinstance(omega0, Sequence) else omega0) / 2
         low_range = hyper.get('low_range', 10)
         perc_low_freqs = hyper.get('perc_low_freqs', 0.7)
+        bounds = False
+        if hyper.get('learn_bounds', False):
+            bounds = hyper.get('bounds', False)
         return MRClass(
             hyper['in_features'],
             hfeat[0] if isinstance(hfeat, Sequence) else hfeat,
@@ -344,32 +374,40 @@ class MRFactory:
             bias=hyper.get('bias', False),
             period=hyper.get('period', period),
             superposition_w0=hyper.get('superposition_w0', True),
-            bandlimit=bandlimit,
+            bandlimit=int(bandlimit),
             low_range=low_range,
-            perc_low_freqs=perc_low_freqs
+            perc_low_freqs=perc_low_freqs,
+            bounds=bounds
         )
 
     def module_from_dict(hyper, idx=None):
         prevknowledge = 0
         if (idx > 0) and hyper['model'] in ['M']:
             prevknowledge = hyper['prevknowledge']
-        # TODO: remove in future versions; for compatibility only (periodic->period).
+        # TODO: remove in future versions; for compatibility only
+        # (periodic->period).
         period = 2 if hyper.get('periodic', False) else 0
-                            
-        return MRModule(hyper['in_features'],
-                        hyper['hidden_features'],
-                        hyper['hidden_layers'],
-                        hyper['out_features'],
-                        hyper['omega_0'],
-                        hyper['hidden_omega_0'],
-                        hyper['bias'],
-                        hyper.get('period', period),
-                        prevknowledge
-        )
+        learn_bounds = hyper.get('learn_bounds', False)
+        bounds = False
+        if learn_bounds:
+            bounds = hyper.get('bounds', False)
+        module = MRBoundedModule if learn_bounds else MRModule
 
-    def save(model:MRNet, path:str):
+        return module(hyper['in_features'],
+                      hyper['hidden_features'],
+                      hyper['hidden_layers'],
+                      hyper['out_features'],
+                      hyper['omega_0'],
+                      hyper['hidden_omega_0'],
+                      hyper['bias'],
+                      hyper.get('period', period),
+                      prevknowledge,
+                      bounds=bounds
+                      )
+
+    def save(model: MRNet, path: str):
         firstmodule = model.stages[0]
-        
+
         omega_0 = [mod.omega_0 for mod in model.stages]
         hidden_omega_0 = [mod.omega_G for mod in model.stages]
         hidden_layers = [mod.hidden_layers for mod in model.stages]
@@ -395,7 +433,7 @@ class MRFactory:
     def load_state_dict(filepath):
         checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
         singledict = deepcopy(checkpoint)
-        module_keys = ['omega_0', 'hidden_omega_0', 'hidden_features', 
+        module_keys = ['omega_0', 'hidden_omega_0', 'hidden_features',
                        'hidden_layers', 'bias']
         updict = {k: checkpoint[k][0] for k in module_keys}
         singledict.update(updict)
@@ -412,9 +450,8 @@ class MRFactory:
             mrmodule.load_state_dict(
                 checkpoint[f'module{stage}_state_dict'])
             model_stages.append(mrmodule)
-            singledict['prevknowledge'] = mrmodule.hidden_features[-1]     
-        
+            singledict['prevknowledge'] = mrmodule.hidden_features[-1]
+
         model.stages = nn.ModuleList(model_stages)
         model.eval()
         return model
-        
