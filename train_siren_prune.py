@@ -51,7 +51,7 @@ if __name__ == "__main__":
     pruner = Pruner(model, p=1, dim=1)
 
     for epoch in range(epochs):
-        if epoch == 50:
+        if epoch == 5:
             pruner.prune([0.5, 0.5, 0.5])
 
         for batch in dataset:
@@ -91,4 +91,6 @@ if __name__ == "__main__":
         model, train_dataset[0], test_dataset[0], device,
         hyper['batch_size'], hyper['channels'], tname
         )
+    print(list(model.net[0].named_buffers()))
     print(list(model.net[1].named_buffers()))
+    print(list(model.net[2].named_buffers()))
