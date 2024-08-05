@@ -18,13 +18,13 @@ def cartesian_product(*arrays):
     return arr.reshape(-1, la)
 
 
-def n_cartesian_freqs(high_list):
+def n_cartesian_freqs(high_list, in_feats=2):
     # half of cartesian product of list [*high_list, *-high_list]
-    # where high_list is a list of positive integers, excluding (0, 0)
+    # where high_list is a list of positive integers.
     if 0 in high_list:
-        return ((2 * len(high_list)) ** 2) / 2
+        return ((2 * len(high_list)) ** in_feats) / 2
     else:
-        return ((2 * len(high_list) + 1) ** 2) / 2
+        return ((2 * len(high_list) + 1) ** in_feats) / 2
 
 
 class SineLayer(nn.Module):
@@ -186,10 +186,10 @@ class SineLayer(nn.Module):
 
     def list_1d_high_freqs(self):
         high_list = [0]
-        perc_high_freqs = n_cartesian_freqs(high_list) / self.out_features
+        perc_high_freqs = n_cartesian_freqs(high_list, self.in_features) / self.out_features
         while perc_high_freqs < 1 - self.__perc_low_freqs:
             high_list.append(0)
-            perc_high_freqs = n_cartesian_freqs(high_list) / self.out_features
+            perc_high_freqs = n_cartesian_freqs(high_list, self.in_features) / self.out_features
         number_high_freqs = len(high_list)
         step = round((self.__bandlimit) / number_high_freqs)
         step = max(step, 1)

@@ -125,55 +125,50 @@ class SineLayer(nn.Module):
 
         with torch.no_grad():
             if self.is_first:
-                assert self.out_features - self.in_features > 0, f"""
-                        Must initialize with at least as many frequencies
-                        ({self.out_features}) as input dimensions
-                        ({self.in_features})."""
-                n_freqs = self.out_features - self.in_features
+                # Guarantee to at least have the canonic frequencies
+                n_freqs = self.out_features - self.in_features 
+                assert n_freqs > 0
+
+                # Choose the number of low and high frequencies
                 n_low_freqs = int(np.ceil(self.__perc_low_freqs * n_freqs))
                 n_high_freqs = n_freqs - n_low_freqs
+                
                 rng = np.random.default_rng(RANDOM_SEED)
-                possible_low_frequencies = cartesian_product(
-                    np.arange(0, self.__low_range + 1),
-                    np.arange(-self.__low_range, self.__low_range + 1))
-                high_1d_freqs = self.list_1d_high_freqs()
-                if self.in_features == 2:
-                    possible_high_frequencies = cartesian_product(
-                        np.array(high_1d_freqs),
-                        np.array(list(set(high_1d_freqs +
-                                          [-i for i in high_1d_freqs]))))
 
-                else:
-                    possible_high_frequencies = cartesian_product(
-                        *(self.in_features *
-                          [np.array(list(set([*-high_1d_freqs,
-                                              *high_1d_freqs])))])
-                        )
+                # Possible low frequencies between [0, l] x [-l, l]^(in_feats - 1)
+                possible_low_freqs = cartesian_product(
+                    np.arange(0, self.__low_range + 1),
+                    *np.tile(np.arange(-self.__low_range, self.__low_range + 1),
+                             (self.in_features - 1, 1)))
+                
+                # Create a evenly spaced grid on [0, b] x [-b, b] ^ (in_feats - 1) such that
+                # the number of samples is greater than the number of high frequencies.
+                # As: n_high_freqs <= (n_1d_high_freqs ^ in_feats) / 2
+                # Then: n_1d_high_freqs >= (2 * n_high_freqs) ** (1 / in_feats)
+                n_1d_high_freqs = int(np.ceil((2 * n_high_freqs) ** (1 / self.in_features)))
+                scale = int(np.ceil(2 * self.__bandlimit / n_1d_high_freqs))
+                half_hf_list = [i * scale - self.__bandlimit for i in range(n_1d_high_freqs + 1)]
+                possible_high_freqs =  cartesian_product(
+                    np.array(half_hf_list[(len(half_hf_list) // 2):]),
+                    *np.tile(np.array(half_hf_list), (self.in_features - 1, 1))
+                    )
                 if discarded_freqs:
-                    possible_high_frequencies = np.array(list(
-                        set(tuple(map(tuple, possible_high_frequencies))) -
+                    possible_high_freqs = np.array(list(
+                        set(tuple(map(tuple, possible_high_freqs))) -
                         set(used_weights)
                     ))
                 chosen_low_frequencies = torch.from_numpy(
-                    rng.choice(possible_low_frequencies,
-                               n_low_freqs,
-                               True))
-                try:
-                    chosen_high_frequencies = torch.from_numpy(
-                        rng.choice(possible_high_frequencies,
-                                   n_high_freqs,
-                                   False))
-                except:
-                    chosen_high_frequencies = torch.from_numpy(
-                        rng.choice(possible_high_frequencies,
-                                   n_high_freqs,
-                                   True))
+                    rng.choice(possible_low_freqs, n_low_freqs, True)
+                    )
+                chosen_high_frequencies = torch.from_numpy(rng.choice(
+                    possible_high_freqs, n_high_freqs, True)
+                    )
                 chosen_frequencies = torch.cat(
                     (torch.eye(self.in_features),  # initialize with basis
                      chosen_low_frequencies,
                      chosen_high_frequencies))
-                self.linear.weight = nn.Parameter(
-                    chosen_frequencies.float() * 2 * torch.pi / self.period)
+                self.linear.weight = nn.Parameter( 2 * torch.pi *
+                    chosen_frequencies.float() / (self.period))
 
                 # first layer will not be updated during training
                 self.linear.weight.requires_grad = False
@@ -197,21 +192,6 @@ class SineLayer(nn.Module):
         # For visualization of activation distributions
         intermediate = self.omega_0 * self.linear(input)
         return torch.sin(intermediate), intermediate
-
-    def list_1d_high_freqs(self):
-        high_list = [0]
-        perc_high_freqs = n_cartesian_freqs(high_list) / self.out_features
-        while perc_high_freqs < 1 - self.__perc_low_freqs:
-            high_list.append(0)
-            perc_high_freqs = n_cartesian_freqs(high_list) / self.out_features
-        number_high_freqs = len(high_list)
-        step = round((self.__bandlimit) / number_high_freqs)
-        step = max(step, 1)
-        high_list = [0] + [
-            self.__low_range + i * step for i in range(number_high_freqs)
-            ]
-        high_list[-1] = self.__bandlimit
-        return high_list
 
     def __set_bandlimit(self, var):
         b = int(var)

@@ -9,7 +9,7 @@ positive_freqs: False
 in_features: 2
 out_features: 3
 hidden_layers: 2
-hidden_features: [[128, 128, 128]]
+hidden_features: [[416, 257, 257]]
 bias: True
 max_stages: 1
 
@@ -19,9 +19,9 @@ domain: [-1, 1]
 # mask_color: 130
 
 # Frequency Initialization
-omega_0: [43]  # Depreciated
-block_limits: [11]
-hidden_omega_0: 43
+omega_0: [82]  # Depreciated
+block_limits: [52]
+hidden_omega_0: 85
 superposition_w0: False
 
 # Sampling
@@ -40,22 +40,22 @@ opt_method: Adam
 lr: 0.0001
 loss_tol: 0.00000000001
 diff_tol: 0.0
-max_epochs_per_stage: 10
+max_epochs_per_stage: 400
 batch_size: 256 * 256
-bounds: [1., .1]
-learn_bounds: True
+bounds: [[1.2, 0.3], 0.05]
+learn_bounds: False
 
 # Image
-data_path: data/kodak/two_macaws.png
-width: 64
-height: 64
+data_path: data/kodak/lighthouse.png
+width: 512
+height: 512
 channels: 3
 #see: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
 color_space: RGB
 
 # Computation (Only vary between 'cpu' and 'cuda')
-device: cpu
-eval_device: cpu
+device: cuda
+eval_device: cuda
 
 # Etc
 save_format: 'general'
