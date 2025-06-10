@@ -361,9 +361,6 @@ class MRFactory:
         bandlimit = (omega0[0] if isinstance(omega0, Sequence) else omega0) / 2
         low_range = hyper.get('low_range', 10)
         perc_low_freqs = hyper.get('perc_low_freqs', 0.7)
-        bounds = False
-        if hyper.get('learn_bounds', False):
-            bounds = hyper.get('bounds', False)
         return MRClass(
             hyper['in_features'],
             hfeat[0] if isinstance(hfeat, Sequence) else hfeat,
@@ -377,7 +374,8 @@ class MRFactory:
             bandlimit=int(bandlimit),
             low_range=low_range,
             perc_low_freqs=perc_low_freqs,
-            bounds=bounds
+            bounds=hyper.get('bounds', False),
+            learn_bounds = hyper.get('learn_bounds', False),
         )
 
     def module_from_dict(hyper, idx=None):

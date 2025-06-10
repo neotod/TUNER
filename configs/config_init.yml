@@ -1,6 +1,6 @@
 # Logging
 project_name: init
-logger: local
+logger: wandb
 # Model Class (S, L, M)
 model: M
 positive_freqs: False
@@ -8,20 +8,20 @@ positive_freqs: False
 # Network
 in_features: 2
 out_features: 3
-hidden_layers: 2
-hidden_features: [[416, 257, 257]]
+hidden_layers: 1
+hidden_features: [[256, 256]]
 bias: True
 max_stages: 1
 
-period: 2.1
+period: 4
 pmode: wrap
 domain: [-1, 1]
 # mask_color: 130
 
 # Frequency Initialization
-omega_0: [82]  # Depreciated
-block_limits: [52]
-hidden_omega_0: 85
+omega_0: [85]  # Depreciated
+block_limits: [10]
+hidden_omega_0: 30
 superposition_w0: False
 
 # Sampling
@@ -32,21 +32,21 @@ attributes: ['d0']
 
 # Loss
 loss_function: 'mse'
-loss_weights: {'d0': 1, 'bound': .05}
+loss_weights: {'d0': 1, 'bound': .00002 }
 optim_handler: 'regular'
 
 # Training
 opt_method: Adam
-lr: 0.0001
+lr: 0.0005
 loss_tol: 0.00000000001
 diff_tol: 0.0
-max_epochs_per_stage: 400
+max_epochs_per_stage: 5000
 batch_size: 256 * 256
-bounds: [[1.2, 0.3], 0.05]
+bounds: [[1., .6], 1.]
 learn_bounds: False
 
 # Image
-data_path: data/kodak/lighthouse.png
+data_path: data/kodak/hats.png
 width: 512
 height: 512
 channels: 3

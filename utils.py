@@ -69,8 +69,38 @@ def create_clamps_by_freq(init_freqs, const):
     return clamps
 
 
+def mse_loss(output_dict, gt_dict, **kwargs):
+    device = kwargs.get('device', 'cpu')
+    pred: torch.Tensor = output_dict['model_out']
+    pred = pred['output']
+    gt = gt_dict['d0'].to(device)
+    loss_dict = {'d0': torch.nn.functional.mse_loss(pred, gt, device)}
+    return loss_dict
+
+
+def construct_bound(model, bounds, limit_lf, period):
+    # bounds = [c_L, c_H]
+    first_weight = model.net[0].linear.weight.clone().detach()
+    freqs = (period / 2 * torch.pi) * first_weight
+    max_1d_freq = torch.max(freqs, dim=1).values
+    mask = max_1d_freq > limit_lf
+    bound = torch.ones_like(max_1d_freq)
+    bound[mask] = bounds[1]
+    bound[~mask] = bounds[0]
+    return bound
+
+
+def get_forward(model, hyper, layer):
+    def forward(input):
+        W = (torch.tanh(hyper['hidden_omega_0'] / 5 *
+                model.net[layer].linear.weight) * model.net[layer].bound)
+        x = (input @ W.T + hyper['hidden_omega_0'] * model.net[layer].linear.bias)
+        return torch.sin(x)
+    return forward
+
+
 # Only for 1 stage models
-def get_database(hyper, train_test=False, percentage_test=0.05):
+def get_database(hyper, train_test=False, percentage_test=0.05, **kw):
 
     base_signal = ImageSignal.init_fromfile(
                         hyper['data_path'],
@@ -94,15 +124,17 @@ def get_database(hyper, train_test=False, percentage_test=0.05):
         base_signal.add_mask(train_mask)
     train_dataset = [base_signal]
 
+    w = kw.get('width_test', w)
+    h = kw.get('height_test', h)
+    base_signal = ImageSignal.init_fromfile(
+                        hyper['data_path'],
+                        domain=[-1, 1],
+                        channels=hyper['channels'],
+                        sampling_scheme=hyper['sampling_scheme'],
+                        width=w, height=h,
+                        batch_size=hyper['batch_size'],
+                        color_space=hyper['color_space'],)
     if train_test:
-        base_signal = ImageSignal.init_fromfile(
-                            hyper['data_path'],
-                            domain=[-1, 1],
-                            channels=hyper['channels'],
-                            sampling_scheme=hyper['sampling_scheme'],
-                            width=w, height=h,
-                            batch_size=hyper['batch_size'],
-                            color_space=hyper['color_space'],)
         test_mask = ~train_mask
         base_signal.add_mask(test_mask)
     test_dataset = [base_signal]

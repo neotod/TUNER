@@ -1,26 +1,25 @@
-# Taming the frequency factory of sinusoidal neural networks
-## An overview of sinusoidal INR's initialization and training
+# Tuning the Frequencies: Robust Training for Sinusoidal Neural Networks
 
 
-This work investigates the structure and representation capacity of sinusoidal MLPs,
-which have recently shown promising results in encoding low-dimensional signals.
-This success can be attributed to its smoothness and high representation capacity.
-The first allows the use of the network’s derivatives during training, enabling
-regularization. However, defining the architecture and initializing its parameters
-to achieve a desired capacity remains an empirical task. This work studies the capacity 
-of sinusoidal MLPs and offers control mechanisms for their initialization and training.
-
-We link the training with the model’s spectrum based on a harmonic expansion of the sinusoidal
-MLP, which says that the composition of sinusoidal layers produces a large number
-of new frequencies expressed as integer linear combinations of the input frequencies
-(weights of the input layer). We use this novel identity to initialize the input neurons
-which work as a sampling in the signal spectrum. We also note that each hidden
-neuron produces the same frequencies with amplitudes completely determined by
-the hidden weights. Finally, we use an upper bound for these amplitudes, to define
-a bounding scheme for the network’s spectrum during training
+Sinusoidal neural networks have been shown effective as implicit neural
+representations (INRs) of low-dimensional signals, due to their smoothness
+and high representation capacity. However, initializing and training them
+remain empirical tasks which lack on deeper understanding to guide the learning
+process. To fill this gap, our work introduces a theoretical framework that
+explains the capacity property of sinusoidal networks and offers robust control
+mechanisms for initialization and training. Our analysis is based on a novel
+amplitude-phase expansion of the sinusoidal multilayer perceptron, showing how
+its layer compositions produce a large number of new frequencies expressed as
+integer combinations of the input frequencies. This relationship can be
+directly used to initialize the input neurons, as a form of spectral sampling,
+and to bound the network’s spectrum while training. Our method, referred to as
+TUNER (TUNing sinusoidal nEtwoRks), greatly improves the stability and
+convergence of sinusoidal INR training, leading to detailed reconstructions, 
+while preventing overfitting.
 
 ## Paper
-Those interested in studying the theory and a more in-depth explanations of the methods in this repository can check the paper on !!!
+Those interested in studying the theory and a more in-depth explanations of the
+methods in this repository can check the paper on !!!
 
 
 ## Getting started
