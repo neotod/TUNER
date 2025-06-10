@@ -1,11 +1,19 @@
 # Tuning the Frequencies: Robust Training for Sinusoidal Neural Networks
+<a href="https://sites.google.com/site/tiagonovellodebrito">Tiago Novello</a><sup>1, 2*</sup>,
+<a href="https://scholar.google.com/citations?user=UBfNGnMAAAAJ&hl=en&oi=ao">Diana Aldana</a><sup>1*</sup>,
+<a href="https://andrefaraujo.github.io/">Andre Araujo</a><sup>2</sup>,
+<a href="https://lvelho.impa.br/">Luiz Velho</a><sup>1</sup>
 
-This is the official repository of the accepted CVPR paper. We use the discovered 
-theoretical framework to initialize the input neurons, as a form of spectral sampling,
-and to bound the network’s spectrum while training. Our method, referred to as
-TUNER (TUNing sinusoidal nEtwoRks), greatly improves the stability and
-convergence of sinusoidal INR training, leading to detailed reconstructions, 
-while preventing overfitting. For more details, access the links below
+<sup>1</sup>IMPA, <sup>2</sup>Google DeepMind
+<br>
+<sup>*</sup> denotes equal contribution
+
+Official pytorch implementation of "Tuning the Frequencies: Robust Training for 
+Sinusoidal Neural Networks", highlighted paper of CVPR 2025. 
+
+<img src="docs/assets/overview.jpg" alt="overview">
+
+For more details, access the links below
 
 <div style="display: flex; gap: 240px;">
     <a href="https://DianaPat.github.io/TUNER/"><img src="https://img.shields.io/badge/Page-blue" alt="Page"></a>
@@ -13,7 +21,7 @@ while preventing overfitting. For more details, access the links below
 </div>
 
 ## Getting started
-The implementation below considers that the user is familiarized with either SIREN [SIREN](https://www.vincentsitzmann.com/siren/) or MR-Net [MR-Net](https://www.sciencedirect.com/science/article/pii/S0097849323000699) repository.
+The implementation below considers that the user is familiarized with either [SIREN](https://www.vincentsitzmann.com/siren/) or [MR-Net](https://www.sciencedirect.com/science/article/pii/S0097849323000699) repository.
 
 
 ### Code organization
