@@ -7,13 +7,13 @@ TUNER (TUNing sinusoidal nEtwoRks), greatly improves the stability and
 convergence of sinusoidal INR training, leading to detailed reconstructions, 
 while preventing overfitting. For more details, access the links below
 
-<div style="display: flex; gap: 20px;">
-    <a href="https://DianaPat.github.io/tuner/"><img src="https://img.shields.io/badge/Button_Label-blue" alt="Page"></a>
-  <a href="docs/assets/Novello_Tuning_the_Frequencies_Robust_Training_for_Sinusoidal_Neural_Networks_CVPR_2025_paper.pdf"><img src="https://img.shields.io/badge/Button_3-red" alt="Paper"></a>
+<div style="display: flex; gap: 240px;">
+    <a href="https://DianaPat.github.io/tuner/"><img src="https://img.shields.io/badge/Page-blue" alt="Page"></a>
+  <a href="docs/assets/Novello_Tuning_the_Frequencies_Robust_Training_for_Sinusoidal_Neural_Networks_CVPR_2025_paper.pdf"><img src="https://img.shields.io/badge/Paper-oranage" alt="Paper"></a>
 </div>
 
 ## Getting started
-The implementation below considers that the user is familiarized with either SIREN ![SIREN](https://www.vincentsitzmann.com/siren/) or MR-Net ![MR-Net](https://www.sciencedirect.com/science/article/pii/S0097849323000699) repository.
+The implementation below considers that the user is familiarized with either SIREN [SIREN](https://www.vincentsitzmann.com/siren/) or MR-Net [MR-Net](https://www.sciencedirect.com/science/article/pii/S0097849323000699) repository.
 
 
 ### Code organization
