@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from logs.handler_base import log_data
+from taming.training.handler_base import log_data
 from networks.siren import Siren
 from utils import load_hyperparameters, get_database
 

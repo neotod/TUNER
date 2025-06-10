@@ -1,35 +1,54 @@
+import csv
 import os
 from pathlib import Path
+import numpy as np
 import torch
 
-# from mrnet.training.listener import TrainingListener
-from training.tracking_logger import TrackTrainingListener
+from mrnet.training.trainer import MRTrainer
+from mrnet.training.listener import TrainingListener
 
-from training.trainer import MRTrainer
-from networks.mrnet import MRFactory
-from utils import (load_hyperparameters,
-                   get_database, get_optim_handler)
+from networks.mrnet import Initializer
+from training.optimizers import ClampOptimizationHandler
+from utils import (create_clamps, load_hyperparameters,
+                   get_database)
+
+
+RANDOM_SEED = 777
+def optim_handler(model, optimizer, loss_function, loss_weights):
+    return ClampOptimizationHandler(
+        model, optimizer, loss_function, loss_weights,
+        bounds)
 
 
 if __name__ == "__main__":
-    torch.manual_seed(777)
 
-    # -- hyperparameters in configs --#
-    # hyper = load_hyperparameters(
-    #     "/home/diana/taming/taming/configs/config_init.yml")
-    hyper = load_hyperparameters("./configs/config_init.yml")
-    project_name = hyper["project_name"] = "deep_networks"
-    train_dataset, test_dataset = get_database(hyper, False, 0.1)
-    m2 = MRFactory.from_dict(hyper)
-    optim_handler = get_optim_handler(hyper.get('optim_handler', 'regular'))
-    name = os.path.basename(hyper["data_path"])
+    torch.manual_seed(RANDOM_SEED)
 
-    logger = TrackTrainingListener(
+    hyper = load_hyperparameters("configs/config_init.yml")
+    project_name = hyper["project_name"] = "train_mrnet"
+    hyper["bounds"] = [1.0, 0.4]
+    hyper['max_epochs_per_stage'] = 100
+    init_freqs = [
+        [0, 1, 2, 3, 4, 5, 6, 7],
+        [0, 13, 26, 39, 52, 65, 78, 91, 104, 117, 130, 143, 156]
+        ]
+    initializer = Initializer(hyper, init_freqs=init_freqs,
+                                bias_init=False, init_W=True)
+    mrmodel = initializer.get_model()
+    freqs = initializer.input_freqs
+
+    bounds = torch.tensor(hyper["bounds"])
+    logger = TrainingListener(
         project_name,
-        f"{name[0:7]}{hyper['color_space'][0]}",
+        (f"{os.path.basename(hyper['data_path'])}_p{hyper['period']}_cl" +
+            f"{'-'.join(map(str, hyper['bounds']))}_lims_" + 
+            '-'.join(map(str, hyper['block_limits']))),
         hyper,
-        Path(hyper.get("log_path", "runs")))
-    mrtrainer = MRTrainer.init_from_dict(m2, train_dataset,
-                                         test_dataset, logger, hyper,
-                                         optim_handler=optim_handler)
+        Path(hyper.get("log_path", "runs")),
+    )
+    train_dataset, test_dataset = get_database(hyper, train_test=True)
+    mrtrainer = MRTrainer.init_from_dict(
+        mrmodel, train_dataset, test_dataset, logger, hyper,
+        optim_handler=optim_handler
+    )
     mrtrainer.train(hyper["device"])

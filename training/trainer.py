@@ -128,7 +128,7 @@ class MRTrainer:
                         hyper['hidden_layers'],
                         hyper['max_stages'],
                         hyper['max_epochs_per_stage'],
-                        hyper['loss_tol'], 
+                        hyper.get('loss_tol', 1e-11), 
                         diff_tol=hyper.get('diff_tol', 1e-7),
                         learning_rate=lr,
                         loss_function=loss_func,

@@ -36,12 +36,12 @@ class ClampOptimizationHandler(OptimizationHandler):
 
     def prepare_bounds(self, bound):
         dev = self.get_device()
-        n_bounds = len(self.model.stages[-1].middle_layers)
+        n_bounds = len(self.model.stages[-1].middle_layers) + 1
         if isinstance(bound, float) and bound > 0:
             b = torch.tensor(bound) / self.get_omega_0()
             bounds = [b.to(dev) for _ in range(n_bounds)]
         elif len(bound) == n_bounds:
-            bounds = [(torch.tensor(b) / self.get_omega_0()).to(dev)
+            bounds = [torch.tensor(b / self.get_omega_0()).to(dev)
                       for b in bound]
         else:
             raise ValueError("Bounds must be positive")

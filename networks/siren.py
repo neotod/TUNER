@@ -55,6 +55,12 @@ class SineLayer(nn.Module):
         self.__set_perc_low_freqs(kwargs.get('perc_low_freqs', 0.7))
 
         self.period = period
+
+        if 'bounds' in kwargs and kwargs['bounds']:
+            self.class_bounds = kwargs['bounds']  # UNDO
+            self.bound= nn.Parameter(
+                0.5 * torch.ones((self.in_features), requires_grad=True))
+
         self.init_weights()
 
     def init_weights(self):
@@ -165,6 +171,14 @@ class SineLayer(nn.Module):
                     )
                 # first layer will not be updated during training
                 self.linear.weight.requires_grad = False
+
+                if hasattr(self, 'bounds'):
+                    bounds = torch.cat([
+                        self.class_bounds[0] * torch.ones(n_low_freqs +
+                                                          self.in_features),
+                        self.class_bounds[1] * torch.ones(n_high_freqs)
+                    ])
+                    self.bound = nn.Parameter(bounds)
 
     def forward(self, input):
         if self.period > 0 and self.is_first:
@@ -300,6 +314,149 @@ class Siren(nn.Module):
             activation_count += 1
 
         return activations
+
+
+class ReLULayer(nn.Module):
+
+    def __init__(self, in_features: int, out_features: int, bias: bool = True,
+                 is_first: bool = False, omega_0: int = 30, period: float = 0,
+                 **kwargs):
+        super().__init__()
+        self.omega_0 = omega_0
+        self.is_first = is_first
+        self.period = period
+
+        self.in_features = in_features
+        self.out_features = out_features
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+
+    def forward(self, input):
+        if self.period > 0 and self.is_first:
+            x = self.linear(input)
+        else:
+            x = self.omega_0 * self.linear(input)
+        return F.relu(x)
+
+
+class TanhLayer(nn.Module):
+
+    def __init__(self, in_features: int, out_features: int, bias: bool = True,
+                 is_first: bool = False, omega_0: int = 30, period: float = 0,
+                 **kwargs):
+        super().__init__()
+        self.omega_0 = omega_0
+        self.is_first = is_first
+        self.period = period
+
+        self.in_features = in_features
+        self.out_features = out_features
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+
+    def forward(self, input):
+        if self.period > 0 and self.is_first:
+            x = self.linear(input)
+        else:
+            x = self.omega_0 * self.linear(input)
+        return F.tanh(x)
+
+
+class FFMLayer(nn.Module):
+
+    def __init__(self, in_features: int, out_features: int, bias: bool = True,
+                 is_first: bool = False, omega_0: int = 30, period: float = 0,
+                 **kwargs):
+        super().__init__()
+        self.omega_0 = omega_0
+        self.period = period
+
+        self.in_features = in_features
+        self.out_features = out_features
+        n_freqs = self.out_features // 2
+
+        std = np.sqrt(self.omega_0)
+        self.freqs = nn.init.normal_(torch.empty(n_freqs, in_features),
+                                mean=0, std=std)
+        # new_linear = (2 * torch.pi) * torch.vstack([freqs, freqs])
+        # self.linear.weight = nn.Parameter(new_linear, requires_grad=False)
+
+    def forward(self, input):
+        sine_features = torch.sin(2 * torch.pi * (self.freqs.cuda() @ input.t()))
+        cosine_features = torch.cos(2 * torch.pi * (self.freqs.cuda() @ input.t()))
+        
+        # Concatenate sine and cosine features
+        return torch.vstack([sine_features, cosine_features]).t()
+
+    # def forward(self, input):
+    #     if self.is_first:
+    #         x = self.linear(input)
+
+    #     else:
+    #         NotImplementedError
+    #     return F.tanh(x)
+class HybridModel(nn.Module):
+    """
+    This SIREN version comes from:
+    https://colab.research.google.com/github/vsitzmann/siren/blob/master/explore_siren.ipynb
+    """
+    def __init__(self, in_features, hidden_features, hidden_layers,
+                 out_features, first_omega_0, hidden_omega_0,
+                 bias=True, outermost_linear=True, superposition_w0=True, 
+                 **kwargs):
+        super().__init__()
+
+        if not isinstance(hidden_features, Sequence):
+            hidden_features = [hidden_features] * (hidden_layers + 1)
+
+        activations = kwargs.get('activations', ['sine'] * hidden_layers)
+        hidden_idx = 0
+        self.net = []
+        self.net.append(
+            layer_act[activations[hidden_idx]](in_features,
+                                               hidden_features[hidden_idx],
+                                               bias=bias,
+                                               is_first=True,
+                                               omega_0=first_omega_0,
+                                               **kwargs))
+
+        self.n_layers = hidden_layers + 1
+        while hidden_idx < hidden_layers:
+
+            hidden_idx += 1
+            self.net.append(
+                layer_act[activations[hidden_idx]](hidden_features[hidden_idx - 1],
+                                                   hidden_features[hidden_idx],
+                                                   is_first=False,
+                                                   omega_0=hidden_omega_0))
+
+        if outermost_linear:
+            final_linear = nn.Linear(hidden_features[hidden_idx], out_features)
+
+            with torch.no_grad():
+                final_linear.weight.uniform_(
+                    -np.sqrt(6 / hidden_features[hidden_idx]) / hidden_omega_0,
+                    np.sqrt(6 / hidden_features[hidden_idx]) / hidden_omega_0)
+
+            self.net.append(final_linear)
+        else:
+            self.net.append(SineLayer(hidden_features[hidden_idx], out_features,
+                                      is_first=False, omega_0=hidden_omega_0))
+
+        self.net = nn.Sequential(*self.net)
+
+    def reset_weights(self):
+        def reset_sinelayer(m):
+            if isinstance(m, SineLayer):
+                m.init_weights()
+        self.apply(reset_sinelayer)
+
+    def forward(self, coords):
+        # allows to take derivative w.r.t. input
+        coords = coords.clone().detach().requires_grad_(True)
+        output = self.net(coords)
+        return output, coords
+
+
+layer_act = {'sine': SineLayer, 'relu': ReLULayer, 'tanh': TanhLayer, 'ffm': FFMLayer}
 
 
 if __name__ == '__main__':

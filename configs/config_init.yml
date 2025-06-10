@@ -1,6 +1,6 @@
 # Logging
-project_name: init
-logger: wandb
+project_name: test
+logger: wandb  # between local and wandb
 # Model Class (S, L, M)
 model: M
 positive_freqs: False
@@ -14,32 +14,23 @@ bias: True
 max_stages: 1
 
 period: 4
-pmode: wrap
 domain: [-1, 1]
-# mask_color: 130
 
 # Frequency Initialization
-omega_0: [85]  # Depreciated
+omega_0: [85]
 block_limits: [10]
 hidden_omega_0: 30
 superposition_w0: False
-
-# Sampling
 sampling_scheme: regular
-decimation: True
-filter: gauss # vary between none, laplace and gauss
-attributes: ['d0']
 
 # Loss
 loss_function: 'mse'
-loss_weights: {'d0': 1, 'bound': .00002 }
+loss_weights: {'d0': 1, 'bound': .00002}
 optim_handler: 'regular'
 
 # Training
 opt_method: Adam
 lr: 0.0005
-loss_tol: 0.00000000001
-diff_tol: 0.0
 max_epochs_per_stage: 5000
 batch_size: 256 * 256
 bounds: [[1., .6], 1.]
