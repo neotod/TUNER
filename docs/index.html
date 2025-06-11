@@ -282,6 +282,14 @@ figure {
         </div>
     </div>
 
+    <section id="abstract">
+        <h2>Abstract</h2>
+        <hr>
+    <p>
+        Sinusoidal neural networks have been shown effective as implicit neural representations (INRs) of low-dimensional signals, due to their smoothness and high representation capacity. However, initializing and training them remain empirical tasks which lack on deeper understanding to guide the learning process. To fill this gap, our work introduces a theoretical framework that explains the capacity property of sinusoidal networks and offers robust control mechanisms for initialization and training. Our analysis is based on a novel amplitude-phase expansion of the sinusoidal multilayer perceptron, showing how its layer compositions produce a large number of new frequencies expressed as integer combinations of the input frequencies. This relationship can be directly used to initialize the input neurons, as a form of spectral sampling, and to bound the network’s spectrum while training. Our method, referred to as TUNER (TUNing sinusoidal nEtwoRks), greatly improves the stability and convergence of sinusoidal INR training, leading to detailed reconstructions, while preventing overfitting.
+    </p>
+    </section>
+
     <section id="teaser-videos">
         <!--
         <figure style="width: 33%; float: left">
@@ -327,51 +335,19 @@ figure {
         </figure> -->
     </section>
 
-    <section id="abstract"/>
-        <h2>Abstract</h2>
-        <hr>
-    <p>
-        Sinusoidal neural networks have been shown effective as implicit neural representations (INRs) of low-dimensional signals, due to their smoothness and high representation capacity. However, initializing and training them remain empirical tasks which lack on deeper understanding to guide the learning process. To fill this gap, our work introduces a theoretical framework that explains the capacity property of sinusoidal networks and offers robust control mechanisms for initialization and training. Our analysis is based on a novel amplitude-phase expansion of the sinusoidal multilayer perceptron, showing how its layer compositions produce a large number of new frequencies expressed as integer combinations of the input frequencies. This relationship can be directly used to initialize the input neurons, as a form of spectral sampling, and to bound the network’s spectrum while training. Our method, referred to as TUNER (TUNing sinusoidal nEtwoRks), greatly improves the stability and convergence of sinusoidal INR training, leading to detailed reconstructions, while preventing overfitting.
-    </p>
-    </section>
-
-    <section id="overview"/>
+    <section id="overview">
         <h2>Overview</h2>
         <hr>
         <p>
-            We present a theoretical analysis of sinusoidal neural networks, introducing a novel trigonometric identity that expands hidden neurons into a sum of sines with frequencies formed by integer combinations of the input frequencies. This expansion yields a practical upper bound on amplitude, offering control over the spectrum at training.
-            <br>
-            Leveraging this insight, we develop a principled initialization scheme that accelerates training by setting input and hidden weights in accordance with their spectral roles. Furthermore, we propose a bandlimit control strategy that bounds hidden weights during optimization, leading to more stable and efficient training of sinusoidal implicit neural representations.
-        
             <figure style="width: 100%; float: center">
             <img class="screenshot-elg" src="assets/overview.jpg">
+
+            To train a sinusoidal MLP (gray model, top-left), we employ two techniques derived from Thrms 1 and 2. First, we initialize the input frequencies &omega; (green, bottom-left) with a dense distribution of low frequencies (red square) and a sparse distribution of higher frequencies (green grid). 
+            This initialization gives flexibility to learn the remaining signal frequencies which are simply integer combinations of &omega; (the yellow nodes on the right), a consequence of the amplitude-phase expansion given by Thrn 1.
+            Note that this initialization resembles a frequency sampling since the training generates those new frequencies around &omega;.
+            Second, we bound the coefficients of the hidden layer weights (blue nodes) to ensure that the MLP remains within a specified bandlimit. This approach is effective because the amplitude-phase expansion (shown on the right) of each hidden neuron (purple nodes) indicates that the amplitudes of the generated frequencies have an upper-bound depending only on the hidden weights (blue, bottom-right).
         </figure>
         </p>
-    </section>
-
-    <section id="results">
-        <h2>Results</h2>
-        <hr>
-
-        <div>
-            <div class="col-2 text-center">
-                <h3>Improved convergence</h3>
-                <hr>
-                <figure style="width: 100%; float: center">
-                    <img class="screenshot-elg" src="assets/convergence_2.jpg">
-                </figure>
-
-            </div>
-
-            <div class="col-2 text-center">
-                <h3>Spectrum bandlimiting</h3>
-                <hr>
-
-                <figure style="width: 100%; float: center">
-                    <img class="screenshot-elg" src="assets/boundings.jpg">
-                </figure>
-            </div>
-        </div>
     </section>
 
     <section id="paper">
@@ -397,16 +373,16 @@ figure {
     </section>
 
     <section id="bibtex">
-        <h2>Citation</h2>
-        <hr>
-        <pre><code>@InProceedings{Novello_2025_CVPR,
-    author    = {Novello, Tiago and Aldana, Diana and Araujo, Andre and Velho, Luiz},
-    title     = {Tuning the Frequencies: Robust Training for Sinusoidal Neural Networks},
-    booktitle = {Proceedings of the Computer Vision and Pattern Recognition Conference (CVPR)},
-    month     = {June},
-    year      = {2025},
-    pages     = {3071-3080}
-}</code></pre>
+            <h2>Citation</h2>
+            <hr>
+            <pre><code>@InProceedings{Novello_2025_CVPR,
+        author    = {Novello, Tiago and Aldana, Diana and Araujo, Andre and Velho, Luiz},
+        title     = {Tuning the Frequencies: Robust Training for Sinusoidal Neural Networks},
+        booktitle = {Proceedings of the Computer Vision and Pattern Recognition Conference (CVPR)},
+        month     = {June},
+        year      = {2025},
+        pages     = {3071-3080}
+    }</code></pre>
     </section>
 </div>
 </body>
