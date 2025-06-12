@@ -1,4 +1,5 @@
 # Tuning the Frequencies: Robust Training for Sinusoidal Neural Networks
+
 <a href="https://sites.google.com/site/tiagonovellodebrito">Tiago Novello</a><sup>1, 2*</sup>,
 <a href="https://scholar.google.com/citations?user=UBfNGnMAAAAJ&hl=en&oi=ao">Diana Aldana</a><sup>1*</sup>,
 <a href="https://andrefaraujo.github.io/">Andre Araujo</a><sup>2</sup>,
@@ -11,13 +12,10 @@
 Official pytorch implementation of "Tuning the Frequencies: Robust Training for 
 Sinusoidal Neural Networks", highlighted paper of CVPR 2025. 
 
-<img src="docs/assets/overview.jpg" alt="overview">
+<img src="docs/assets/overview_with_legend.png" alt="overview">
 
-For more details, access the links below
-
-<div style="display: flex; gap: 240px;">
-    <a href="https://DianaPat.github.io/TUNER/"><img src="https://img.shields.io/badge/Page-blue" alt="Page"></a>
-  <a href="docs/assets/Novello_Tuning_the_Frequencies_Robust_Training_for_Sinusoidal_Neural_Networks_CVPR_2025_paper.pdf"><img src="https://img.shields.io/badge/Paper-oranage" alt="Paper"></a>
+<div style="text-align: center; font-size: 30px;">
+<a href="https://DianaPat.github.io/TUNER/">Page</a> | <a href="docs/assets/Novello_Tuning_the_Frequencies_Robust_Training_for_Sinusoidal_Neural_Networks_CVPR_2025_paper.pdf">Paper</a>
 </div>
 
 ## Getting started
