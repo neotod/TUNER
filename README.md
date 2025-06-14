@@ -55,10 +55,14 @@ pip install -r requirements.txt
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117
 pip install git+https://github.com/visgraf/mrnet.git
 ```
-5. Download the kodak datasets (available [here](https://r0k.us/graphics/kodak/)) and extract them into the `data` folder of the repository
-6. Train a network for the two macaws mesh:
+5. Download the [kodak](https://r0k.us/graphics/kodak/), FINER's [div2k](https://github.com/liuzhen0212/FINER/tree/main/data/div2k), and BANF's [data_triangle](https://drive.google.com/file/d/1sS2sfqkGdhKh-marO4wBIjM-A0jzVQ6e/view?usp=sharing) datasets and save them in the `data` folder
+6. Train a network using the standard siren architecture:
 ```
 python train_siren.py
+```
+and with the mrnet architecture:
+```
+python train_mrnet.py
 ```
 7. If the `logger` is set as `local`, the results will be logged in
 `runs/logs`, stored in a folder with a date ordering prefix and in another
