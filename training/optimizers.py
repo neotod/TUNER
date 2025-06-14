@@ -41,7 +41,7 @@ class ClampOptimizationHandler(OptimizationHandler):
             b = torch.tensor(bound) / self.get_omega_0()
             bounds = [b.to(dev) for _ in range(n_bounds)]
         elif len(bound) == n_bounds:
-            bounds = [torch.tensor(b / self.get_omega_0()).to(dev)
+            bounds = [(b / self.get_omega_0()).to(dev)
                       for b in bound]
         else:
             raise ValueError("Bounds must be positive")

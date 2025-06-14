@@ -34,9 +34,27 @@ The code is organized as follows:
 ### Setup and sample run
 
 1. Open a terminal (or Git Bash if using Windows)
-2. Clone the repository: `git clone https://github.com/DianaPat/taming.git`.
-3. Enter project folder: `cd tuner`.
-4. Create the environment and setup project dependencies
+2. Clone the repository: 
+```
+git clone https://github.com/DianaPat/TUNER.git
+cd TUNER
+```
+4. Create the environment and setup project dependencies. For linux:
+```
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install torch torchvision torchaudio
+pip install git+https://github.com/visgraf/mrnet.git
+```
+On Windows systems:
+```
+python3 -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117
+pip install git+https://github.com/visgraf/mrnet.git
+```
 5. Download the kodak datasets (available [here](https://r0k.us/graphics/kodak/)) and extract them into the `data` folder of the repository
 6. Train a network for the two macaws mesh:
 ```

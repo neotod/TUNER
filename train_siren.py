@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from taming.training.handler_base import log_data
+from training.handler_base import log_data
 from networks.siren import Siren
 from utils import load_hyperparameters, get_database
 
@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     # -- hyperparameters in configs --#
     hyper = load_hyperparameters(
-        "/home/diana/taming/taming/configs/config_init.yml")
+        "./configs/config_init.yml")
     project_name = hyper["project_name"] = "bacon"
     train_dataset, test_dataset = get_database(hyper, True)
     device = 'cuda:0' if hyper['device'] == 'cuda' else 'cpu'
