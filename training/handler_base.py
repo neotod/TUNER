@@ -36,6 +36,9 @@ def gradient(y, x, grad_outputs=None):
 
 
 def log_metrics(gt, pred, name):
+    # print(f'gt.shape: {gt.shape}')
+    # print(f'pred.shape: {pred.shape}')
+
     mse = torch.mean((gt - pred)**2)
     psnr = (10 * torch.log10(1 / mse)).item()
     np.savetxt(name + '/psnr.csv', [psnr], delimiter="\n")
@@ -43,7 +46,7 @@ def log_metrics(gt, pred, name):
 
 
 def log_data(model, train_loader, test_loader, hyper,
-             name, **kw):
+             name, model_name, **kw):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     directory = DIR + f'/runs/logs/{timestamp}_{name}'
     if not os.path.exists(directory):
@@ -68,6 +71,8 @@ def log_data(model, train_loader, test_loader, hyper,
         with open(directory + '/loss.csv', 'w') as f:
             for i, item in enumerate(loss):
                 f.write("%s\n" % item)
+                
+    print(f'train_loader: {train_loader}')
 
     # Log PSNR
     pixels = []
@@ -76,9 +81,14 @@ def log_data(model, train_loader, test_loader, hyper,
     for batch in train_loader:
         X, gt_dict = batch['c0']
         # X['coords'] = X['coords'].requires_grad_(True)
-        pred = model(X['coords'].to(device))[0]
+        pred = model(X['coords'].to(device))
+        # print(f'pred.shape: {pred.shape}')
+
         pixels.append(pred.detach().cpu())
         gt.append(gt_dict['d0'].detach().cpu())
+
+    # print(f'pixels: {pixels}')
+
     pixels = torch.concat(pixels)
     gt = torch.concat(gt)
     psnr = log_metrics(gt, pixels, directory)
@@ -97,7 +107,13 @@ def log_data(model, train_loader, test_loader, hyper,
     for batch in BatchSampler(coords, batch_size,
                               drop_last=False):
         batch = torch.stack(batch)
-        pred, coords = model(batch.to(device))
+        
+        if model_name == 'parac':
+          coords = batch.to(device).clone().detach().requires_grad_(True)
+          pred = model(coords)
+        else:
+          pred, coords = model(batch.to(device))
+
         pixels.append(pred.detach().cpu())
         value = {'output': pred}
         if color_space == 'YCbCr':
@@ -144,7 +160,7 @@ def log_data(model, train_loader, test_loader, hyper,
             f.close()
 
     gt_img = test_loader.data.permute((1, 2, 0))
-    log_zoom(hyper, model, test_loader, directory, device)
+    log_zoom(hyper, model, model_name, test_loader, directory, device)
 
     psnr_grad = log_grad_psnr(directory, gt_img.numpy(), grad_img)
     psnr_test = 0.
@@ -181,7 +197,7 @@ def log_fft(pixels: torch.Tensor, label: str,
     plt.imsave(f'{label}.png', img, cmap='gray')
     return (magnitude * 255).astype(np.uint8)
 
-def log_zoom(hyper, model, test_loader, save_dir, device):
+def log_zoom(hyper, model, model_name, test_loader, save_dir, device):
     w, h = test_loader.shape[1:]
     domain = hyper.get('domain', [-1, 1])
     zoom = hyper.get('zoom', [])
@@ -192,7 +208,12 @@ def log_zoom(hyper, model, test_loader, save_dir, device):
             output = []
             for batch in BatchSampler(zoom_coords, hyper['batch_size'], drop_last=False):
                 batch = torch.stack(batch).to(device)
-                output.append(model(batch)[0])
+
+                if model_name == 'siren':
+                  output.append(model(batch)[0])
+                else:
+                  output.append(model(batch))
+
             pixels = torch.concat(output)
 
         pixels = pixels.cpu().view((h, w, hyper['channels']))

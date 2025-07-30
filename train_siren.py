@@ -32,24 +32,29 @@ if __name__ == "__main__":
     device = 'cuda:0' if hyper['device'] == 'cuda' else 'cpu'
     hf = hyper['hidden_features'][0][0]
     low_range = 10
-    # model = Siren(in_features=hyper['in_features'],
-    #               hidden_features=hyper['hidden_features'][0],
-    #               hidden_layers=hyper['hidden_layers'],
-    #               out_features=hyper['out_features'],
-    #               first_omega_0=hyper['omega_0'][0],
-    #               hidden_omega_0=hyper['hidden_omega_0'],
-    #               period=hyper["period"],
-    #               mode="uniform",
-    #               low_range=low_range)
-    
-    model = INR('parac').run(in_features=2,
-                                out_features=3, 
-                                hidden_features=256,
-                                hidden_layers=1,
-                                first_omega_0=60.0,
-                                hidden_omega_0=40.0,
-                               )
+  
+    model_name = 'parac'
+    if model_name == 'siren':
+      model = Siren(in_features=hyper['in_features'],
+                    hidden_features=hyper['hidden_features'][0],
+                    hidden_layers=hyper['hidden_layers'],
+                    out_features=hyper['out_features'],
+                    first_omega_0=hyper['omega_0'][0],
+                    hidden_omega_0=hyper['hidden_omega_0'],
+                    period=hyper["period"],
+                    mode="uniform",
+                    low_range=low_range)
+    else:
+      model = INR('parac').run(in_features=2,
+                                  out_features=3, 
+                                  hidden_features=256,
+                                  hidden_layers=1,
+                                  first_omega_0=60.0,
+                                  hidden_omega_0=40.0,
+                                )
     model.to(device)
+
+    print(model)
 
     optimizer = torch.optim.Adam(lr=hyper['lr'],
                                  params=model.parameters())
@@ -73,9 +78,13 @@ if __name__ == "__main__":
             model.zero_grad()
 
             X, gt_dict = batch['c0']
+            # print(f'X["coords"].shape: {X["coords"].shape}')
+            
             pred = model(X['coords'].to(device))
-            out_dict = {'model_out': {'output': pred}}
+            # print(f'pred.shape: {pred.shape}')
 
+            out_dict = {'model_out': {'output': pred}}
+           
             loss_dict = mse_loss(out_dict, gt_dict, device=device)
             loss = loss_dict['d0'] * 1.0
 
@@ -104,5 +113,5 @@ if __name__ == "__main__":
     bandlimit = hyper['omega_0'][0]
     tname = f"{name}_{dif}_hf{hf}_b{bandlimit}_l{low_range}_Ep{epochs}"
     metrics = log_data(
-        model, train_dataset[0], test_dataset[0], hyper, tname, loss=loss_log
+        model, train_dataset[0], test_dataset[0], hyper, tname, model_name, loss=loss_log
         )
