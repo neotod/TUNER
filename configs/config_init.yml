@@ -13,13 +13,13 @@ hidden_features: [[256, 256]]
 bias: True
 max_stages: 1
 
-period: 4
+period: 0
 domain: [-1, 1]
 
 # Frequency Initialization
-omega_0: [85]
+omega_0: [40]
 block_limits: [10]
-hidden_omega_0: 30
+hidden_omega_0: 40
 superposition_w0: False
 sampling_scheme: regular
 
@@ -30,8 +30,8 @@ optim_handler: 'regular'
 
 # Training
 opt_method: Adam
-lr: 0.0005
-max_epochs_per_stage: 5000
+lr: 0.001
+max_epochs_per_stage: 500
 batch_size: 256 * 256
 bounds: [[1., .6], 1.]
 learn_bounds: False

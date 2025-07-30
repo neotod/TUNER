@@ -15,6 +15,8 @@ def mse_loss(output_dict, gt_dict, **kwargs):
     loss_dict = {'d0': F.mse_loss(pred, gt, device)}
     return loss_dict
 
+from modules.models import INR
+
 
 if __name__ == "__main__":
     torch.manual_seed(777)
@@ -30,19 +32,33 @@ if __name__ == "__main__":
     device = 'cuda:0' if hyper['device'] == 'cuda' else 'cpu'
     hf = hyper['hidden_features'][0][0]
     low_range = 10
-    model = Siren(in_features=hyper['in_features'],
-                  hidden_features=hyper['hidden_features'][0],
-                  hidden_layers=hyper['hidden_layers'],
-                  out_features=hyper['out_features'],
-                  first_omega_0=hyper['omega_0'][0],
-                  hidden_omega_0=hyper['hidden_omega_0'],
-                  period=hyper["period"],
-                  mode="uniform",
-                  low_range=low_range)
+    # model = Siren(in_features=hyper['in_features'],
+    #               hidden_features=hyper['hidden_features'][0],
+    #               hidden_layers=hyper['hidden_layers'],
+    #               out_features=hyper['out_features'],
+    #               first_omega_0=hyper['omega_0'][0],
+    #               hidden_omega_0=hyper['hidden_omega_0'],
+    #               period=hyper["period"],
+    #               mode="uniform",
+    #               low_range=low_range)
+    
+    model = INR('parac').run(in_features=2,
+                                out_features=3, 
+                                hidden_features=256,
+                                hidden_layers=1,
+                                first_omega_0=60.0,
+                                hidden_omega_0=40.0,
+                               )
     model.to(device)
 
-    optimizer = torch.optim.Adam(lr=0.0001,
+    optimizer = torch.optim.Adam(lr=hyper['lr'],
                                  params=model.parameters())
+    
+    import torch.optim.lr_scheduler as lr_scheduler
+    scheduler_b = 0.05
+    scheduler = lr_scheduler.LambdaLR(optimizer, lambda x: scheduler_b ** min(x / hyper['max_epochs_per_stage'], 1))
+
+
     last_epoch_loss = 1000000
     total_epochs_trained = 0
     current_loss_tol = 1e-5
@@ -58,7 +74,7 @@ if __name__ == "__main__":
 
             X, gt_dict = batch['c0']
             pred = model(X['coords'].to(device))
-            out_dict = {'model_out': {'output': pred[0]}}
+            out_dict = {'model_out': {'output': pred}}
 
             loss_dict = mse_loss(out_dict, gt_dict, device=device)
             loss = loss_dict['d0'] * 1.0
@@ -70,6 +86,9 @@ if __name__ == "__main__":
             for key, value in loss_dict.items():
                 running_loss[key] = (running_loss.get(key, 0.0)
                                      + value.item())
+
+        if 30 < epoch:
+            scheduler.step()
 
         epoch_loss = {key: value / len(dataset)
                       for key, value in running_loss.items()}
